@@ -424,16 +424,16 @@ Cualquier referencia hardcoded a "Tlalocan" en componentes debe leer de aquí. E
 
 Marcar la fase como cerrada cuando:
 
-- [ ] Todas las migraciones de `supabase/migrations/` se aplicaron en proyecto Tlalocan (ya hecho — verificar).
-- [ ] App refactorizada en archivos ≤ 200 líneas cada uno.
-- [ ] Login real funcional con Supabase Auth.
-- [ ] Cada tab muestra datos reales de Supabase, no hardcoded.
-- [ ] Formulario nueva reserva: crea huésped + reserva con montos correctos via `calcular_estadia`.
-- [ ] Validación de disponibilidad antes de guardar.
-- [ ] Validación de pago: ver comprobante (signed URL) + validar/rechazar.
-- [ ] Notificaciones realtime funcionando con Supabase Realtime.
-- [ ] Visibilidad por rol en UI (RLS lo respalda en DB).
-- [ ] App desplegada en Vercel (`tlalocan.vercel.app`) con env vars configuradas.
+- [x] Todas las migraciones de `supabase/migrations/` se aplicaron en proyecto Tlalocan.
+- [~] App refactorizada en archivos ≤ 200 líneas cada uno *(la mayoría sí; quedaron por encima los formularios y un par de tabs — ver §18.4)*.
+- [x] Login real funcional con Supabase Auth *(implementado; falta verificar runtime con un super_admin real)*.
+- [x] Cada tab muestra datos reales de Supabase, no hardcoded.
+- [x] Formulario nueva reserva: crea huésped + reserva con montos correctos via `calcular_estadia`.
+- [x] Validación de disponibilidad antes de guardar.
+- [x] Validación de pago: ver comprobante (signed URL) + validar/rechazar.
+- [x] Notificaciones realtime funcionando con Supabase Realtime *(código listo; requiere activar publication, ver §18.2)*.
+- [x] Visibilidad por rol en UI (RLS lo respalda en DB).
+- [ ] App desplegada en Vercel (`tlalocan.vercel.app`) con env vars configuradas *(pendiente push + deploy)*.
 - [ ] Smoke test E2E: login super_admin → crear reserva pendiente_pago → simular subida de comprobante → validar → ver notificación → verificar tareas auto-generadas en tab Staff.
 - [ ] PR de `fase-2-app` → `main` mergeado.
 
@@ -446,6 +446,104 @@ Marcar la fase como cerrada cuando:
 - Si Realtime no llega, verificar que la tabla `notificaciones` esté en la publication `supabase_realtime` (Database → Replication).
 - Si el comprobante no se ve, verificar que generes un signed URL — el bucket es privado.
 - Cualquier cosa fuera del alcance documentado, parar y preguntarle a Don Dani antes de tomar decisiones grandes.
+
+---
+
+## 18. Estado al cierre de sesión — 2026-05-06
+
+> Resumen para retomar la fase en una nueva sesión. La rama `fase-2-app` tiene 20 commits sobre `main`, `npm run build` pasa, nada se ha pusheado.
+
+### 18.1 Trabajo completado (commits §14)
+
+Los 20 commits del orden sugerido están aplicados, en este orden:
+
+```
+2abac57 chore: setup supabase client y env vars
+2150158 chore: agregar dependencias supabase, router, date-fns
+41174df refactor: extraer design tokens a lib/design-tokens.js
+b2409ae refactor: extraer componentes Card, MetricCard, Modal, badges
+6e735b4 feat: branding.config.js y references desde App.jsx
+f4cb21b feat: auth real con supabase, login page, useAuth, useRol
+bce4fc7 refactor: convertir App.jsx en router; DashboardPage como layout
+504cd9d feat: useChalets, useHuespedes, useTareas, useConfig
+39551d1 feat: useReservas con filtros y refetch
+b70c366 feat: NuevaReservaForm con calcular_estadia y validacion
+1d39031 feat: tab Reservas conectado a datos reales
+ff7a6f0 feat: ValidarPagoForm con comprobante en signed URL
+7c2ec2f feat: useNotificaciones realtime + NotificationBell
+b5e6191 feat: tab Resumen con metricas reales
+e1ec7b5 feat: tab Huespedes conectado a datos reales
+6c8ed20 feat: tab Staff con tareas conectadas
+95b152a feat: tab Chalets (super_admin) con CRUD basico
+f5d53ff feat: tab Config con tarifas, constantes y usuarios
+219548d feat: matriz de visibilidad por rol con RequireRole
+f326bec docs: actualizar README con instrucciones de desarrollo
+```
+
+Adicionales fuera del §14:
+- Commit en `main` previo (`8939b43`) que incorporó `PLAN.md`, `FASE-2.md`, `supabase/migrations/`, `seed.sql` y `.gitignore` al repo (el remoto solo tenía la demo).
+- `vercel.json` con rewrites para SPA fallback (BrowserRouter rompe `/reservas`, `/chalets`, etc. sin esto en prod).
+
+### 18.2 Pendiente manual (no es código — bloquea verificación E2E)
+
+1. **Crear primer super_admin real** (Supabase Auth + insert en `public.usuarios`). Pasos exactos en `README.md` → "Setup inicial del backend".
+2. **Activar Realtime para `notificaciones`**: Supabase Studio → Database → Replication → publication `supabase_realtime` → toggle on para la tabla. Sin esto, la campana no recibe inserts en vivo.
+3. **Push de `fase-2-app` y abrir PR contra `main`**. Configurar env vars en Vercel (`VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`) antes del deploy.
+4. **Smoke test E2E** según §16.
+
+### 18.3 Decisiones tomadas en la sesión que conviene revisar
+
+- **Tabs como rutas (`/reservas`, `/chalets`, etc.) en lugar de state**: deep-linkable y más limpio, pero introduce dependencia de `vercel.json` para SPA fallback.
+- **`StatusBadge` unificado** soporta tanto estados de chalet (legacy del Resumen — `occupied/available/cleaning`) como de reserva (`cotizada/pendiente_pago/...`). Si el chalet status decorativo del Resumen molesta, se puede separar.
+- **`TaskBadge`** migrado a los estados reales del esquema (`pendiente/en_curso/completada/cancelada/rechazada`). Los keys del demo (`in_progress/pending/completed`) ya no se usan.
+- **Calendario de abril** del demo en ReservasTab eliminado. Para volver a tenerlo habría que materializar día-a-día desde reservas; queda para iteración posterior.
+- **Bloque "Gastos operativos"** del demo en StaffTab eliminado (no existe en el esquema).
+- **`useAuth` y `useRol` sin Context Provider**: cada consumidor instancia su propio `onAuthStateChange`. Hoy son ~3-4 consumidores; aceptable. Si crece la app, pasar a Context.
+- **Identidad del committer**: los 20 commits salieron como `Daniel Mendez <danielmendez@192.168.1.3>` porque `user.email` no estaba configurado globalmente. Si quieres que diga `dnl.mendez.a@gmail.com`, configura git y considera rebase para reescribir autores antes de pushear.
+
+### 18.4 Decisiones pendientes para próxima sesión
+
+Cosas que dejé abiertas o que el cliente quizá quiera redirigir:
+
+1. **Archivos > 200 líneas** (la guía de §13 los pide ≤ 200):
+   - `src/forms/NuevaReservaForm.jsx` — 352
+   - `src/forms/ValidarPagoForm.jsx` — 315
+   - `src/tabs/ResumenTab.jsx` — 275
+   - `src/tabs/ConfigTab.jsx` — 240
+   - `src/forms/EditarChaletForm.jsx` — 219
+   - `src/pages/LoginPage.jsx` — 203
+
+   Decisión: ¿partir (extraer subcomponentes / mover styles a constantes) o aceptar que los formularios son densos por naturaleza?
+
+2. **Fotos de chalets**: §15 las dejó fuera de M·01 (super_admin las sube manual en Storage). El tab Chalets solo muestra el count. ¿Agregar uploader en una iteración corta antes de Fase 3, o respetar el alcance?
+
+3. **Edición de tarifas con UI**: §15 también las dejó fuera. La pestaña Config solo muestra lectura. Mismo dilema.
+
+4. **CRUD completo de usuarios**: hoy solo lectura. Crear nuevos usuarios sigue siendo manual (Auth dashboard + insert en `usuarios`). ¿Suficiente para Fase 2 o agregar formulario de invitación?
+
+5. **`SourceBadge`**: solo distingue "airbnb" vs "Directo". El esquema tiene 6 valores de origen (`directa, airbnb, booking, referido, agente_whatsapp, app_manual`). ¿Mantener el binario o etiquetar cada uno?
+
+6. **Calendario de reservas en tab Reservas**: dropeado en commit 11. Vista mensual con días ocupados/libres es valiosa visualmente — ¿restaurar como nice-to-have antes de cerrar Fase 2?
+
+7. **Bundle size**: ~810 KB sin gzip (recharts + supabase + router). Vercel lo gzipea a ~225 KB. Con `manualChunks` se podría partir vendor para mejor caching. No urgente.
+
+8. **Mobile responsive**: el diseño es responsivo en lo básico (flexWrap), pero no se validó en breakpoints chicos. Probar en 375px antes del E2E.
+
+9. **Push y autoría**: ¿push directo a `fase-2-app` en GitHub y abrir PR, o quieres revisar localmente primero? Y la pregunta del committer email (§18.3) se decide aquí.
+
+### 18.5 Cómo retomar
+
+```bash
+cd tlalocan-dashboard
+git status                    # debe estar limpio en fase-2-app
+git log main..fase-2-app      # los 20 commits del §14
+npm install                   # si node_modules no está
+cp .env.example .env.local    # si .env.local no existe
+# editar .env.local con las credenciales
+npm run dev
+```
+
+Para empezar la próxima sesión: leer §18.2–18.4 y decidir el orden de los pendientes con Don Dani.
 
 ---
 
