@@ -1,0 +1,20 @@
+{
+  "permissions": {
+    "allow": [
+      "mcp__claude_ai_n8n__search_workflows",
+      "mcp__claude_ai_n8n__get_workflow_details",
+      "Bash(python3 -c \"import json; d=json.load\\(open\\('/Users/danielmendez/.claude/projects/-Users-danielmendez-Documents-Documentos---iMac-de-Daniel-Clientes-2026-Tlalocan-tlalocan-dashboard/7b39c89d-4a91-4db8-94ab-7f5e272d0354/tool-results/mcp-claude_ai_n8n-get_workflow_details-1776777433655.txt'\\)\\); w=d['workflow']; print\\('name:',w['name']\\); print\\('nodeCount:',len\\(w['nodes']\\)\\); [print\\(f\\\\\"  - {n['name']} \\({n['type']}\\)\\\\\"\\) for n in w['nodes']]\")",
+      "Bash(python3)",
+      "Read(//private/tmp/**)",
+      "Bash(python3 -c ' *)",
+      "Bash(git ls-remote *)",
+      "Bash(git init *)",
+      "Bash(git remote *)",
+      "Bash(git fetch *)"
+    ],
+    "additionalDirectories": [
+      "/tmp",
+      "/private/tmp"
+    ]
+  }
+}
