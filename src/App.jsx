@@ -2,6 +2,10 @@ import { useState, useEffect } from "react";
 import { LineChart, Line, BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, PieChart, Pie, Cell } from "recharts";
 import { T } from "./lib/design-tokens";
 import { branding } from "./lib/branding.config";
+import { supabase } from "./lib/supabase";
+import { useAuth } from "./hooks/useAuth";
+import { useRol } from "./hooks/useRol";
+import LoginPage from "./pages/LoginPage";
 import Card from "./components/Card";
 import MetricCard from "./components/MetricCard";
 import StatusBadge from "./components/badges/StatusBadge";
@@ -376,79 +380,49 @@ function StaffTab() {
 
 const tabs = ["Resumen", "Reservas", "Huéspedes", "Staff"];
 
+function getInitials(nombre, fallback) {
+  const source = (nombre || fallback || "").trim();
+  if (!source) return "?";
+  const parts = source.split(/\s+/).slice(0, 2);
+  return parts.map((p) => p[0]?.toUpperCase()).join("") || "?";
+}
+
 export default function App() {
   const [activeTab, setActiveTab] = useState("Resumen");
-  const [loggedIn, setLoggedIn] = useState(false);
-  const [loginFade, setLoginFade] = useState(false);
+  const { user, loading: authLoading } = useAuth();
+  const { rol, nombre, isLoading: rolLoading, isInactive } = useRol();
+  const [inactiveMessage, setInactiveMessage] = useState(null);
 
   useEffect(() => {
-    setTimeout(() => setLoginFade(true), 100);
-  }, []);
+    if (isInactive) {
+      setInactiveMessage(
+        "Tu cuenta no está activa. Contacta al administrador.",
+      );
+      supabase.auth.signOut();
+    }
+  }, [isInactive]);
 
-  if (!loggedIn) {
+  if (authLoading || (user && rolLoading && !isInactive)) {
     return (
       <div style={{
-        minHeight: "100vh", background: T.dark, display: "flex", alignItems: "center", justifyContent: "center",
-        fontFamily: "'Cormorant Garamond', Georgia, serif",
+        minHeight: "100vh", background: T.dark, display: "flex",
+        alignItems: "center", justifyContent: "center",
       }}>
         <div style={{
-          textAlign: "center", maxWidth: 360, padding: "0 24px", width: "100%",
-          opacity: loginFade ? 1 : 0, transform: loginFade ? "translateY(0)" : "translateY(20px)",
-          transition: "all 0.8s ease",
+          color: T.muted, fontFamily: "'DM Sans', sans-serif",
+          fontSize: 12, letterSpacing: 3, textTransform: "uppercase",
         }}>
-          <div style={{ fontSize: 48, fontWeight: 300, color: T.gold, letterSpacing: 6, marginBottom: 4, textTransform: "uppercase" }}>{branding.appName}</div>
-          <div style={{ fontSize: 12, color: T.muted, letterSpacing: 8, textTransform: "uppercase", marginBottom: 56 }}>{branding.appCategory}</div>
-
-          <div style={{ fontSize: 11, color: T.muted, letterSpacing: 3, textTransform: "uppercase", marginBottom: 24 }}>Panel de control</div>
-
-          <div style={{ textAlign: "left" }}>
-            <label style={{ fontSize: 11, color: T.muted, letterSpacing: 1, textTransform: "uppercase", display: "block", marginBottom: 6 }}>Usuario</label>
-            <input
-              type="text"
-              defaultValue="admin@tlalocan"
-              style={{
-                width: "100%", background: T.card, border: `1px solid ${T.border}`, borderRadius: 10,
-                padding: "13px 16px", color: T.text, fontSize: 14, marginBottom: 18, boxSizing: "border-box",
-                outline: "none", transition: "border-color 0.2s",
-              }}
-              onFocus={e => e.target.style.borderColor = T.gold}
-              onBlur={e => e.target.style.borderColor = T.border}
-            />
-            <label style={{ fontSize: 11, color: T.muted, letterSpacing: 1, textTransform: "uppercase", display: "block", marginBottom: 6 }}>Contraseña</label>
-            <input
-              type="password"
-              defaultValue="password"
-              style={{
-                width: "100%", background: T.card, border: `1px solid ${T.border}`, borderRadius: 10,
-                padding: "13px 16px", color: T.text, fontSize: 14, marginBottom: 32, boxSizing: "border-box",
-                outline: "none", transition: "border-color 0.2s",
-              }}
-              onFocus={e => e.target.style.borderColor = T.gold}
-              onBlur={e => e.target.style.borderColor = T.border}
-            />
-          </div>
-
-          <button
-            onClick={() => setLoggedIn(true)}
-            style={{
-              width: "100%", background: T.gold, color: T.dark, border: "none", borderRadius: 10, padding: "14px",
-              fontSize: 13, fontWeight: 600, letterSpacing: 2, textTransform: "uppercase", cursor: "pointer",
-              fontFamily: "'DM Sans', sans-serif", transition: "opacity 0.2s, transform 0.1s",
-            }}
-            onMouseEnter={e => e.target.style.opacity = "0.85"}
-            onMouseLeave={e => e.target.style.opacity = "1"}
-            onMouseDown={e => e.target.style.transform = "scale(0.98)"}
-            onMouseUp={e => e.target.style.transform = "scale(1)"}
-          >
-            Entrar
-          </button>
-          <div style={{ fontSize: 11, color: T.muted, marginTop: 20, fontStyle: "italic", fontFamily: "'DM Sans', sans-serif" }}>
-            Demo — cualquier credencial funciona
-          </div>
+          Cargando…
         </div>
       </div>
     );
   }
+
+  if (!user || !rol) {
+    return <LoginPage initialMessage={inactiveMessage} />;
+  }
+
+  const initials = getInitials(nombre, user.email);
 
   const tabContent = {
     Resumen: <ResumenTab />,
@@ -472,12 +446,21 @@ export default function App() {
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
           <div style={{ width: 8, height: 8, borderRadius: "50%", background: T.green }} />
-          <div style={{
-            width: 32, height: 32, borderRadius: "50%", background: "rgba(181,134,11,0.15)",
-            display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12, color: T.goldLight, fontWeight: 500,
-          }}>
-            TC
-          </div>
+          <button
+            type="button"
+            onClick={() => supabase.auth.signOut()}
+            title={`Cerrar sesión (${nombre || user.email})`}
+            aria-label="Cerrar sesión"
+            style={{
+              width: 32, height: 32, borderRadius: "50%", background: "rgba(181,134,11,0.15)",
+              display: "flex", alignItems: "center", justifyContent: "center",
+              fontSize: 12, color: T.goldLight, fontWeight: 500,
+              border: "none", cursor: "pointer", padding: 0,
+              fontFamily: "'DM Sans', sans-serif",
+            }}
+          >
+            {initials}
+          </button>
         </div>
       </div>
 
