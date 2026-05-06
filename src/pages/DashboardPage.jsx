@@ -11,6 +11,7 @@ const TABS = [
   { to: '/reservas', label: 'Reservas' },
   { to: '/huespedes', label: 'Huéspedes' },
   { to: '/staff', label: 'Staff' },
+  { to: '/chalets', label: 'Chalets' },
 ];
 
 function getInitials(nombre, fallback) {
