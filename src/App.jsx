@@ -11,6 +11,7 @@ import ReservasTab from './tabs/ReservasTab';
 import HuespedesTab from './tabs/HuespedesTab';
 import StaffTab from './tabs/StaffTab';
 import ChaletsTab from './tabs/ChaletsTab';
+import ConfigTab from './tabs/ConfigTab';
 
 function LoadingSplash() {
   return (
@@ -80,6 +81,7 @@ export default function App() {
           <Route path="huespedes" element={<HuespedesTab />} />
           <Route path="staff" element={<StaffTab />} />
           <Route path="chalets" element={<ChaletsTab />} />
+          <Route path="config" element={<ConfigTab />} />
         </Route>
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
