@@ -6,13 +6,17 @@ import { useRol } from '../hooks/useRol';
 import { useAuth } from '../hooks/useAuth';
 import NotificationBell from '../components/NotificationBell';
 
+const ALL_ROLES = ['super_admin', 'admin', 'ventas'];
+const ADMIN_ROLES = ['super_admin', 'admin'];
+const SUPER_ONLY = ['super_admin'];
+
 const TABS = [
-  { to: '/', label: 'Resumen', end: true },
-  { to: '/reservas', label: 'Reservas' },
-  { to: '/huespedes', label: 'Huéspedes' },
-  { to: '/staff', label: 'Staff' },
-  { to: '/chalets', label: 'Chalets' },
-  { to: '/config', label: 'Config' },
+  { to: '/', label: 'Resumen', end: true, roles: ALL_ROLES },
+  { to: '/reservas', label: 'Reservas', roles: ALL_ROLES },
+  { to: '/huespedes', label: 'Huéspedes', roles: ALL_ROLES },
+  { to: '/staff', label: 'Staff', roles: ADMIN_ROLES },
+  { to: '/chalets', label: 'Chalets', roles: ADMIN_ROLES },
+  { to: '/config', label: 'Config', roles: SUPER_ONLY },
 ];
 
 function getInitials(nombre, fallback) {
@@ -24,8 +28,9 @@ function getInitials(nombre, fallback) {
 
 export default function DashboardPage() {
   const { user } = useAuth();
-  const { nombre } = useRol();
+  const { nombre, rol } = useRol();
   const initials = getInitials(nombre, user?.email);
+  const visibleTabs = TABS.filter((t) => !rol || t.roles.includes(rol));
 
   return (
     <div style={{ minHeight: '100vh', background: T.dark }}>
@@ -106,7 +111,7 @@ export default function DashboardPage() {
           overflowX: 'auto',
         }}
       >
-        {TABS.map((t) => (
+        {visibleTabs.map((t) => (
           <NavLink
             key={t.to}
             to={t.to}

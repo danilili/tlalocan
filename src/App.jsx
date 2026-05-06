@@ -12,6 +12,10 @@ import HuespedesTab from './tabs/HuespedesTab';
 import StaffTab from './tabs/StaffTab';
 import ChaletsTab from './tabs/ChaletsTab';
 import ConfigTab from './tabs/ConfigTab';
+import RequireRole from './components/RequireRole';
+
+const ADMIN_ROLES = ['super_admin', 'admin'];
+const SUPER_ONLY = ['super_admin'];
 
 function LoadingSplash() {
   return (
@@ -79,9 +83,30 @@ export default function App() {
           <Route index element={<ResumenTab />} />
           <Route path="reservas" element={<ReservasTab />} />
           <Route path="huespedes" element={<HuespedesTab />} />
-          <Route path="staff" element={<StaffTab />} />
-          <Route path="chalets" element={<ChaletsTab />} />
-          <Route path="config" element={<ConfigTab />} />
+          <Route
+            path="staff"
+            element={
+              <RequireRole roles={ADMIN_ROLES} fallback={<Navigate to="/" replace />}>
+                <StaffTab />
+              </RequireRole>
+            }
+          />
+          <Route
+            path="chalets"
+            element={
+              <RequireRole roles={ADMIN_ROLES} fallback={<Navigate to="/" replace />}>
+                <ChaletsTab />
+              </RequireRole>
+            }
+          />
+          <Route
+            path="config"
+            element={
+              <RequireRole roles={SUPER_ONLY} fallback={<Navigate to="/" replace />}>
+                <ConfigTab />
+              </RequireRole>
+            }
+          />
         </Route>
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
