@@ -1,9 +1,11 @@
 import { T } from '../../lib/design-tokens';
 
 const CONFIG = {
-  in_progress: { label: 'En curso', color: T.goldLight },
-  pending: { label: 'Pendiente', color: T.muted },
-  completed: { label: 'Listo', color: T.green },
+  pendiente: { label: 'Pendiente', color: T.muted },
+  en_curso: { label: 'En curso', color: T.goldLight },
+  completada: { label: 'Listo', color: T.green },
+  cancelada: { label: 'Cancelada', color: T.muted },
+  rechazada: { label: 'Rechazada', color: T.red },
 };
 
 export default function TaskBadge({ status }) {

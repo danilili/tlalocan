@@ -19,7 +19,9 @@ export function useTareas({
 
     let query = supabase
       .from('tareas')
-      .select('*')
+      .select(
+        '*, chalet:chalets(id, nombre, slug), staff:staff(id, nombre_visible, telefono, puesto)',
+      )
       .order('programada_para', { ascending: true });
 
     if (chaletId) query = query.eq('chalet_id', chaletId);
