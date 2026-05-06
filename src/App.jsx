@@ -1,6 +1,11 @@
 import { useState, useEffect } from "react";
 import { LineChart, Line, BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, PieChart, Pie, Cell } from "recharts";
 import { T } from "./lib/design-tokens";
+import Card from "./components/Card";
+import MetricCard from "./components/MetricCard";
+import StatusBadge from "./components/badges/StatusBadge";
+import SourceBadge from "./components/badges/SourceBadge";
+import TaskBadge from "./components/badges/TaskBadge";
 
 /* ─── Hardcoded Data ─── */
 const chalets = [
@@ -71,73 +76,6 @@ function FadeIn({ children, delay = 0, style }) {
     }}>
       {children}
     </div>
-  );
-}
-
-function StatusBadge({ status }) {
-  const cfg = {
-    occupied: { label: "Ocupado", bg: "rgba(181,134,11,0.15)", color: T.goldLight },
-    available: { label: "Disponible", bg: "rgba(91,140,90,0.15)", color: T.green },
-    cleaning: { label: "Limpieza", bg: "rgba(160,152,130,0.15)", color: T.muted },
-  };
-  const c = cfg[status];
-  return <span style={{ background: c.bg, color: c.color, padding: "3px 10px", borderRadius: 20, fontSize: 11, fontWeight: 500, letterSpacing: 0.3, whiteSpace: "nowrap" }}>{c.label}</span>;
-}
-
-function SourceBadge({ source }) {
-  if (!source) return null;
-  const a = source === "airbnb";
-  return (
-    <span style={{
-      background: a ? "rgba(255,90,95,0.12)" : "rgba(181,134,11,0.12)",
-      color: a ? "#FF5A5F" : T.goldLight,
-      padding: "2px 8px", borderRadius: 12, fontSize: 10, fontWeight: 500, letterSpacing: 0.5, textTransform: "uppercase",
-    }}>
-      {a ? "Airbnb" : "Directo"}
-    </span>
-  );
-}
-
-function TaskBadge({ status }) {
-  const cfg = {
-    in_progress: { label: "En curso", color: T.goldLight },
-    pending: { label: "Pendiente", color: T.muted },
-    completed: { label: "Listo", color: T.green },
-  };
-  const c = cfg[status];
-  return <span style={{ color: c.color, fontSize: 11, fontWeight: 500 }}>{c.label}</span>;
-}
-
-function Card({ children, style, onClick }) {
-  return (
-    <div
-      onClick={onClick}
-      style={{
-        background: T.card, borderRadius: 14, border: `1px solid ${T.border}`,
-        padding: "20px 22px",
-        transition: "border-color 0.2s, transform 0.15s",
-        cursor: onClick ? "pointer" : "default",
-        ...style,
-      }}
-      onMouseEnter={e => { if (onClick) { e.currentTarget.style.borderColor = T.gold; e.currentTarget.style.transform = "translateY(-1px)"; } }}
-      onMouseLeave={e => { if (onClick) { e.currentTarget.style.borderColor = T.border; e.currentTarget.style.transform = "translateY(0)"; } }}
-    >
-      {children}
-    </div>
-  );
-}
-
-function MetricCard({ label, value, sub, trend }) {
-  return (
-    <Card style={{ flex: "1 1 140px", minWidth: 140 }}>
-      <div style={{ fontSize: 11, color: T.muted, letterSpacing: 0.8, textTransform: "uppercase", marginBottom: 6 }}>{label}</div>
-      <div style={{ fontSize: 26, fontWeight: 600, color: T.text, lineHeight: 1.1 }}>{value}</div>
-      {sub && (
-        <div style={{ fontSize: 12, color: trend === "up" ? T.green : trend === "down" ? T.red : T.muted, marginTop: 4 }}>
-          {trend === "up" ? "↑ " : trend === "down" ? "↓ " : ""}{sub}
-        </div>
-      )}
-    </Card>
   );
 }
 
