@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { LineChart, Line, BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, PieChart, Pie, Cell } from "recharts";
 import { T } from "./lib/design-tokens";
+import { branding } from "./lib/branding.config";
 import Card from "./components/Card";
 import MetricCard from "./components/MetricCard";
 import StatusBadge from "./components/badges/StatusBadge";
@@ -395,8 +396,8 @@ export default function App() {
           opacity: loginFade ? 1 : 0, transform: loginFade ? "translateY(0)" : "translateY(20px)",
           transition: "all 0.8s ease",
         }}>
-          <div style={{ fontSize: 48, fontWeight: 300, color: T.gold, letterSpacing: 6, marginBottom: 4 }}>TLALOCAN</div>
-          <div style={{ fontSize: 12, color: T.muted, letterSpacing: 8, textTransform: "uppercase", marginBottom: 56 }}>Chalets</div>
+          <div style={{ fontSize: 48, fontWeight: 300, color: T.gold, letterSpacing: 6, marginBottom: 4, textTransform: "uppercase" }}>{branding.appName}</div>
+          <div style={{ fontSize: 12, color: T.muted, letterSpacing: 8, textTransform: "uppercase", marginBottom: 56 }}>{branding.appCategory}</div>
 
           <div style={{ fontSize: 11, color: T.muted, letterSpacing: 3, textTransform: "uppercase", marginBottom: 24 }}>Panel de control</div>
 
@@ -466,7 +467,7 @@ export default function App() {
         backdropFilter: "blur(12px)",
       }}>
         <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-          <span style={{ fontFamily: "'Cormorant Garamond', Georgia, serif", fontSize: 20, fontWeight: 300, color: T.gold, letterSpacing: 3 }}>TLALOCAN</span>
+          <span style={{ fontFamily: "'Cormorant Garamond', Georgia, serif", fontSize: 20, fontWeight: 300, color: T.gold, letterSpacing: 3, textTransform: "uppercase" }}>{branding.appName}</span>
           <span style={{ fontSize: 10, color: T.muted, letterSpacing: 2, textTransform: "uppercase" }}>Panel de control</span>
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
