@@ -4,6 +4,7 @@ import { branding } from '../lib/branding.config';
 import { supabase } from '../lib/supabase';
 import { useRol } from '../hooks/useRol';
 import { useAuth } from '../hooks/useAuth';
+import NotificationBell from '../components/NotificationBell';
 
 const TABS = [
   { to: '/', label: 'Resumen', end: true },
@@ -65,8 +66,8 @@ export default function DashboardPage() {
           </span>
         </div>
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <div style={{ width: 8, height: 8, borderRadius: '50%', background: T.green }} />
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+          <NotificationBell />
           <button
             type="button"
             onClick={() => supabase.auth.signOut()}
