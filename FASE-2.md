@@ -437,10 +437,10 @@ Marcar la fase como cerrada cuando:
 - [x] Validación de pago: ver comprobante (signed URL) + validar/rechazar *(código verificado; pendiente flow E2E real cuando exista Agente 1 que suba comprobantes)*.
 - [x] Notificaciones realtime funcionando con Supabase Realtime *(publication activada para `notificaciones`)*.
 - [x] Visibilidad por rol en UI (RLS lo respalda en DB) *(verificado con cuenta `ventas` real)*.
-- [ ] App desplegada en Vercel (`tlalocan.vercel.app`) con env vars configuradas.
-- [ ] Smoke test E2E completo en producción: login super_admin → crear reserva → ver tareas auto-generadas → notificaciones realtime al cambio de estado.
-- [ ] Validar SPA fallback en Vercel (navegar directo a `/reservas`, `/chalets`, etc.).
-- [ ] PR de `fase-2-app` → `main` mergeado.
+- [x] App desplegada en Vercel con env vars configuradas *(Preview URL validada el 2026-05-08; Production se actualiza al mergear el PR)*.
+- [x] Smoke test E2E completo en Preview de producción: login → navegación → crear reserva → SPA fallback → logout.
+- [x] Validar SPA fallback en Vercel *(verificado en Preview)*.
+- [ ] PR de `fase-2-app` → `main` mergeado *(último paso)*.
 
 ---
 
@@ -628,11 +628,11 @@ repo bajo `supabase/migrations/`):
    `ALTER PUBLICATION supabase_realtime ADD TABLE public.notificaciones;`
    La campana ya recibe inserts en tiempo real.
 
-> **TODO antes del cierre:** estas 3 migraciones se aplicaron a la DB
-> productiva pero no están versionadas en `supabase/migrations/`.
-> Hay que crear los archivos `0021_*.sql`, `0022_*.sql`, `0023_*.sql`
-> con el SQL exacto para que un fork desde scratch reproduzca el
-> estado actual.
+> Las 3 migraciones quedaron versionadas como
+> `supabase/migrations/0021_fix_rls_helper_functions.sql`,
+> `0022_fix_usuarios_select_policy.sql` y
+> `0023_enable_realtime_notificaciones.sql`. Un fork desde scratch
+> aplicando todas las migraciones en orden reproduce el estado actual.
 
 ### 19.2 Smoke test local — resultados
 
@@ -670,14 +670,22 @@ Ejecutado el 2026-05-08 con DB real, super_admin y ventas reales:
 
 ### 19.4 Próximos pasos
 
-1. Push de `fase-2-app` a GitHub.
-2. Deploy en Vercel (auto si el repo ya está conectado). Configurar
-   env vars: `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`.
-3. Smoke test en producción contra `tlalocan.vercel.app`.
-4. Validar SPA fallback (navegar directo a `/reservas`, `/chalets`).
-5. Versionar las 3 migraciones de §19.1 como archivos en
-   `supabase/migrations/`.
-6. Abrir PR `fase-2-app` → `main` y mergear.
+Cerrados en esta sesión:
+
+- ✅ Push de `fase-2-app` a GitHub.
+- ✅ Deploy en Vercel con env vars configuradas
+  (`VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`).
+- ✅ Smoke test en Preview deployment de Vercel.
+- ✅ SPA fallback validado.
+- ✅ Las 3 migraciones de §19.1 versionadas como archivos
+  `0021/0022/0023_*.sql`.
+
+Pendiente:
+
+- Abrir PR `fase-2-app` → `main` y mergear.
+- Después del merge: validar que `tlalocan.vercel.app` (Production)
+  refleje el nuevo build.
+- Comenzar Fase 3 (Agente 1 — Ventas) según PLAN.md §4.
 
 ---
 
