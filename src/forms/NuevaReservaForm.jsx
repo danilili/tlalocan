@@ -17,6 +17,14 @@ const ORIGENES_HUESPED = [
   { value: 'otro', label: 'Otro' },
 ];
 
+const ORIGENES_RESERVA = [
+  { value: 'directa', label: 'Directa' },
+  { value: 'airbnb', label: 'Airbnb' },
+  { value: 'booking', label: 'Booking' },
+  { value: 'referido', label: 'Referido' },
+  { value: 'app_manual', label: 'Manual / App' },
+];
+
 const inputStyle = {
   width: '100%',
   background: T.dark,
@@ -44,9 +52,9 @@ const fieldStyle = { marginBottom: 14 };
 const rowStyle = { display: 'flex', gap: 10, flexWrap: 'wrap' };
 
 const INITIAL = {
-  phone: '', nombre: '', apellidos: '', email: '', origenInicial: 'directa',
+  phone: '', nombre: '', apellidos: '', email: '', origenInicial: 'whatsapp_directo',
   chaletId: '', fechaEntrada: '', fechaSalida: '', numHuespedes: 2,
-  notas: '', estado: 'pendiente_pago',
+  notas: '', estado: 'pendiente_pago', origenReserva: 'directa',
 };
 
 export default function NuevaReservaForm({ open, onClose, onCreated }) {
@@ -67,12 +75,11 @@ export default function NuevaReservaForm({ open, onClose, onCreated }) {
   // Reset al abrir.
   useEffect(() => {
     if (open) {
-      const defaultEstado = isAdmin ? 'pendiente_pago' : 'pendiente_pago';
-      setForm({ ...INITIAL, estado: defaultEstado });
+      setForm({ ...INITIAL });
       setHuespedFound(null); setCalculo(null); setCalculoError(null);
       setSolape({ blocking: false, warning: false }); setSubmitError(null);
     }
-  }, [open, isAdmin]);
+  }, [open]);
 
   // Buscar huesped por telefono.
   useEffect(() => {
@@ -129,9 +136,9 @@ export default function NuevaReservaForm({ open, onClose, onCreated }) {
         .lt('fecha_entrada', fechaSalida)
         .gt('fecha_salida', fechaEntrada);
       if (cancelled || error) return;
-      const blocking = (data ?? []).some((r) => ['confirmada', 'en_curso'].includes(r.estado));
-      const warning = !blocking && (data ?? []).some((r) => r.estado === 'pendiente_pago');
-      setSolape({ blocking, warning });
+      const ACTIVE = ['cotizada', 'pendiente_pago', 'confirmada', 'en_curso'];
+      const blocking = (data ?? []).some((r) => ACTIVE.includes(r.estado));
+      setSolape({ blocking, warning: false });
     })();
     return () => { cancelled = true; };
   }, [form.chaletId, form.fechaEntrada, form.fechaSalida]);
@@ -170,7 +177,7 @@ export default function NuevaReservaForm({ open, onClose, onCreated }) {
         impuesto_hospedaje: calculo.impuesto_hospedaje,
         monto_total: calculo.total,
         estado: form.estado,
-        origen: 'app_manual',
+        origen: form.origenReserva,
         notas: form.notas.trim() || null,
         creada_por: user?.id ?? null,
       });
@@ -232,15 +239,26 @@ export default function NuevaReservaForm({ open, onClose, onCreated }) {
         </div>
 
         {/* Reserva */}
-        <div style={fieldStyle}>
-          <label style={labelStyle}>Chalet</label>
-          <select style={inputStyle} value={form.chaletId}
-                  onChange={(e) => set({ chaletId: e.target.value })} required>
-            <option value="">— Selecciona —</option>
-            {chalets.map((c) => (
-              <option key={c.id} value={c.id}>{c.nombre}</option>
-            ))}
-          </select>
+        <div style={rowStyle}>
+          <div style={{ ...fieldStyle, flex: 1, minWidth: 180 }}>
+            <label style={labelStyle}>Chalet</label>
+            <select style={inputStyle} value={form.chaletId}
+                    onChange={(e) => set({ chaletId: e.target.value })} required>
+              <option value="">— Selecciona —</option>
+              {chalets.map((c) => (
+                <option key={c.id} value={c.id}>{c.nombre}</option>
+              ))}
+            </select>
+          </div>
+          <div style={{ ...fieldStyle, flex: 1, minWidth: 180 }}>
+            <label style={labelStyle}>Origen de la reserva</label>
+            <select style={inputStyle} value={form.origenReserva}
+                    onChange={(e) => set({ origenReserva: e.target.value })}>
+              {ORIGENES_RESERVA.map((o) => (
+                <option key={o.value} value={o.value}>{o.label}</option>
+              ))}
+            </select>
+          </div>
         </div>
 
         <div style={rowStyle}>
@@ -285,12 +303,7 @@ export default function NuevaReservaForm({ open, onClose, onCreated }) {
         {/* Disponibilidad */}
         {solape.blocking && (
           <div style={{ color: T.red, fontSize: 12, margin: '8px 0' }}>
-            Fechas no disponibles: ya hay una reserva confirmada o en curso en este chalet.
-          </div>
-        )}
-        {solape.warning && (
-          <div style={{ color: T.goldLight, fontSize: 12, margin: '8px 0' }}>
-            Hay otra reserva pendiente de pago en estas fechas. Confirma con el huésped antes de proceder.
+            Fechas no disponibles: ya hay una reserva activa en este chalet en el rango seleccionado.
           </div>
         )}
 

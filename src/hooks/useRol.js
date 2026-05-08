@@ -5,6 +5,7 @@ import { useAuth } from './useAuth';
 export function useRol() {
   const { user, loading: authLoading } = useAuth();
   const [data, setData] = useState(null);
+  const [queriedUserId, setQueriedUserId] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
@@ -12,6 +13,7 @@ export function useRol() {
     if (authLoading) return;
     if (!user) {
       setData(null);
+      setQueriedUserId(null);
       setLoading(false);
       return;
     }
@@ -28,6 +30,7 @@ export function useRol() {
         if (!mounted) return;
         if (queryError) setError(queryError);
         setData(row ?? null);
+        setQueriedUserId(user.id);
         setLoading(false);
       });
 
@@ -37,7 +40,8 @@ export function useRol() {
   }, [user, authLoading]);
 
   const rol = data?.activo ? data.rol : null;
-  const isInactive = !!user && !authLoading && !loading && (!data || !data.activo);
+  const querySettled = !!user && queriedUserId === user.id && !loading;
+  const isInactive = querySettled && (!data || !data.activo);
 
   return {
     rol,

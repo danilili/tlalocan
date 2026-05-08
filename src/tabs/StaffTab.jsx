@@ -34,7 +34,7 @@ function formatProgramada(iso) {
 }
 
 export default function StaffTab() {
-  const { data: tareas, loading: tareasLoading, error: tareasError } = useTareas({ dias: 7 });
+  const { data: tareas, loading: tareasLoading, error: tareasError } = useTareas({ dias: 30 });
   const [staff, setStaff] = useState([]);
   const [staffLoading, setStaffLoading] = useState(true);
 
@@ -64,7 +64,7 @@ export default function StaffTab() {
   return (
     <>
       <FadeIn>
-        <SectionTitle>Tareas próximas (7 días)</SectionTitle>
+        <SectionTitle>Tareas próximas (30 días)</SectionTitle>
         {tareasLoading && (
           <div style={{ color: T.muted, fontSize: 12 }}>Cargando tareas…</div>
         )}

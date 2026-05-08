@@ -7,6 +7,7 @@ import { useReservas } from '../hooks/useReservas';
 import { useRol } from '../hooks/useRol';
 import NuevaReservaForm from '../forms/NuevaReservaForm';
 import ValidarPagoForm from '../forms/ValidarPagoForm';
+import EditarReservaForm from '../forms/EditarReservaForm';
 import { formatMoney, formatDateShort } from '../lib/format';
 
 const ESTADOS_PROXIMAS = ['cotizada', 'pendiente_pago', 'confirmada', 'en_curso'];
@@ -14,6 +15,7 @@ const ESTADOS_PROXIMAS = ['cotizada', 'pendiente_pago', 'confirmada', 'en_curso'
 export default function ReservasTab() {
   const [showForm, setShowForm] = useState(false);
   const [validating, setValidating] = useState(null); // reserva | null
+  const [editing, setEditing] = useState(null); // reserva | null
   const { isAdmin } = useRol();
 
   const today = useMemo(() => new Date().toISOString().slice(0, 10), []);
@@ -91,11 +93,15 @@ export default function ReservasTab() {
                     gap: 10,
                   }}
                 >
-                  <div style={{ minWidth: 160 }}>
+                  <div style={{ minWidth: 140, flex: 1 }}>
                     <div style={{ fontSize: 14, fontWeight: 500 }}>{fullName(r.huesped)}</div>
-                    <div style={{ fontSize: 12, color: T.muted, marginTop: 2 }}>
+                    <div style={{ fontSize: 11, color: T.muted, marginTop: 2 }}>Huésped</div>
+                  </div>
+                  <div style={{ minWidth: 130, flex: 1 }}>
+                    <div style={{ fontSize: 13, fontWeight: 500, color: T.goldLight }}>
                       {r.chalet?.nombre ?? '—'}
                     </div>
+                    <div style={{ fontSize: 11, color: T.muted, marginTop: 2 }}>Chalet</div>
                   </div>
                   <div style={{ fontSize: 12, color: T.muted, minWidth: 130 }}>
                     {formatDateShort(r.fecha_entrada)} → {formatDateShort(r.fecha_salida)}
@@ -115,6 +121,20 @@ export default function ReservasTab() {
                   >
                     {formatMoney(r.monto_total)}
                   </div>
+                  {isAdmin && (
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setEditing(r);
+                      }}
+                      title="Editar reserva"
+                      aria-label="Editar reserva"
+                      style={btnEdit}
+                    >
+                      ✎
+                    </button>
+                  )}
                 </Card>
               </FadeIn>
             );
@@ -132,6 +152,13 @@ export default function ReservasTab() {
         open={!!validating}
         reserva={validating}
         onClose={() => setValidating(null)}
+        onUpdated={refetch}
+      />
+
+      <EditarReservaForm
+        open={!!editing}
+        reserva={editing}
+        onClose={() => setEditing(null)}
         onUpdated={refetch}
       />
     </>
@@ -168,5 +195,20 @@ const btnNueva = {
   letterSpacing: 1.2,
   textTransform: 'uppercase',
   cursor: 'pointer',
+  fontFamily: "'DM Sans', sans-serif",
+};
+
+const btnEdit = {
+  background: 'transparent',
+  color: T.muted,
+  border: `1px solid ${T.border}`,
+  borderRadius: 6,
+  width: 30,
+  height: 30,
+  fontSize: 14,
+  cursor: 'pointer',
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'center',
   fontFamily: "'DM Sans', sans-serif",
 };
