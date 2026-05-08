@@ -422,19 +422,24 @@ Cualquier referencia hardcoded a "Tlalocan" en componentes debe leer de aquí. E
 
 ## 16. Definition of Done para Fase 2
 
+> **Estado actual: pruebas finales.** El smoke test local pasó en la mayoría de
+> los flujos (ver §19). Falta deploy en Vercel y validación en producción
+> antes de cerrar la fase.
+
 Marcar la fase como cerrada cuando:
 
 - [x] Todas las migraciones de `supabase/migrations/` se aplicaron en proyecto Tlalocan.
 - [~] App refactorizada en archivos ≤ 200 líneas cada uno *(la mayoría sí; quedaron por encima los formularios y un par de tabs — ver §18.4)*.
-- [x] Login real funcional con Supabase Auth *(implementado; falta verificar runtime con un super_admin real)*.
+- [x] Login real funcional con Supabase Auth *(verificado con super_admin y ventas reales en local)*.
 - [x] Cada tab muestra datos reales de Supabase, no hardcoded.
 - [x] Formulario nueva reserva: crea huésped + reserva con montos correctos via `calcular_estadia`.
-- [x] Validación de disponibilidad antes de guardar.
-- [x] Validación de pago: ver comprobante (signed URL) + validar/rechazar.
-- [x] Notificaciones realtime funcionando con Supabase Realtime *(código listo; requiere activar publication, ver §18.2)*.
-- [x] Visibilidad por rol en UI (RLS lo respalda en DB).
-- [ ] App desplegada en Vercel (`tlalocan.vercel.app`) con env vars configuradas *(pendiente push + deploy)*.
-- [ ] Smoke test E2E: login super_admin → crear reserva pendiente_pago → simular subida de comprobante → validar → ver notificación → verificar tareas auto-generadas en tab Staff.
+- [x] Validación de disponibilidad antes de guardar *(ahora bloquea cualquier estado activo, no solo confirmada/en_curso)*.
+- [x] Validación de pago: ver comprobante (signed URL) + validar/rechazar *(código verificado; pendiente flow E2E real cuando exista Agente 1 que suba comprobantes)*.
+- [x] Notificaciones realtime funcionando con Supabase Realtime *(publication activada para `notificaciones`)*.
+- [x] Visibilidad por rol en UI (RLS lo respalda en DB) *(verificado con cuenta `ventas` real)*.
+- [ ] App desplegada en Vercel (`tlalocan.vercel.app`) con env vars configuradas.
+- [ ] Smoke test E2E completo en producción: login super_admin → crear reserva → ver tareas auto-generadas → notificaciones realtime al cambio de estado.
+- [ ] Validar SPA fallback en Vercel (navegar directo a `/reservas`, `/chalets`, etc.).
 - [ ] PR de `fase-2-app` → `main` mergeado.
 
 ---
@@ -544,6 +549,135 @@ npm run dev
 ```
 
 Para empezar la próxima sesión: leer §18.2–18.4 y decidir el orden de los pendientes con Don Dani.
+
+---
+
+## 19. Estado al cierre de sesión — 2026-05-08
+
+> **Fase de pruebas finales.** Smoke test local ejecutado por Don Dani
+> con super_admin (`reservaciones@tlalocanchalets.mx`) y ventas
+> (`dnl.mendez.a@gmail.com`). La rama `fase-2-app` tiene 21 commits sobre
+> `main`. Falta push, deploy en Vercel y validación E2E en producción.
+
+### 19.1 Trabajo de esta sesión
+
+Commit nuevo sobre el §14:
+
+```
+c5fc89c feat: arreglos y mejoras del smoke test de Fase 2
+```
+
+Bugs corregidos:
+
+- **`useRol` race condition al login.** El check de `isInactive`
+  disparaba `signOut` en el render entre `onAuthStateChange` seteando el
+  `user` y el effect lanzando la query a `public.usuarios`. Ahora
+  `isInactive` solo evalúa después de que la query haya completado para
+  el `user.id` actual (`queriedUserId === user.id`). Sin esto, todos
+  los logins terminaban en "Tu cuenta no está activa".
+- **Default inválido de `huespedes.origen_inicial`.** El form usaba
+  `'directa'` que no es valor válido del check constraint. Cambiado a
+  `'whatsapp_directo'`.
+
+Mejoras de UX:
+
+- **Dropdown del avatar.** Antes el botón circular del header hacía
+  `signOut` directo al click. Ahora abre un menú con nombre, email,
+  rol y opción "Cerrar sesión". Click fuera lo cierra.
+- **Columna chalet visible en lista de reservas.** Antes era subtítulo
+  del huésped, ahora es columna propia con énfasis dorado.
+- **Botón ✎ por reserva** (super_admin/admin) que abre un modal de
+  edición.
+- **Ventana de tareas en StaffTab** extendida de 7 a 30 días para que
+  las tareas auto-generadas sean visibles desde la app sin esperar
+  al día anterior al check-in.
+
+Features:
+
+- **`EditarReservaForm`** (nuevo, 351 líneas). Read-only: huésped y
+  chalet. Editable: fechas, # huéspedes, notas, estado. Al cambiar
+  fechas recalcula montos vía `calcular_estadia` y verifica
+  disponibilidad excluyendo la propia reserva. Botón rojo "Eliminar
+  reserva" con confirmación de dos clicks, solo visible para
+  super_admin (RLS también lo enforce).
+- **Select "Origen de la reserva"** en `NuevaReservaForm`. Sustituye
+  el `'app_manual'` hardcoded anterior. Permite a ventas capturar
+  el canal real de la reserva (Directa, Airbnb, Booking, Referido,
+  Manual/App).
+- **Bloqueo estricto de overlaps.** Antes solo bloqueaba
+  `confirmada/en_curso` y mostraba warning amarillo permisivo para
+  `pendiente_pago`. Ahora bloquea cualquier estado activo
+  (`cotizada/pendiente_pago/confirmada/en_curso`). Esto evita el caso
+  detectado en el smoke test donde dos reservas overlapeadas se podían
+  crear si la primera era `pendiente_pago`.
+
+Migraciones de DB aplicadas vía MCP (en proyecto Tlalocan, NO en este
+repo bajo `supabase/migrations/`):
+
+1. **`fix_usuarios_select_policy`** — `usuarios_select_authenticated`
+   ahora usa `auth.uid() IS NOT NULL` en vez de la función helper
+   `is_authenticated_user()`. Esto rompe el ciclo `SECURITY DEFINER +
+   SET search_path` que hacía `auth.uid()` devolver NULL dentro del
+   RLS check, bloqueando todos los logins.
+2. **`fix_rls_helper_functions`** — `is_authenticated_user`,
+   `is_super_admin`, `is_admin_or_super` reescritas como
+   `SECURITY INVOKER` (sin `SET search_path`) para que `auth.uid()`
+   funcione cuando se invocan desde políticas RLS de otras tablas
+   (chalets, reservas, staff, tareas, etc.).
+3. **`enable_realtime_notificaciones`** —
+   `ALTER PUBLICATION supabase_realtime ADD TABLE public.notificaciones;`
+   La campana ya recibe inserts en tiempo real.
+
+> **TODO antes del cierre:** estas 3 migraciones se aplicaron a la DB
+> productiva pero no están versionadas en `supabase/migrations/`.
+> Hay que crear los archivos `0021_*.sql`, `0022_*.sql`, `0023_*.sql`
+> con el SQL exacto para que un fork desde scratch reproduzca el
+> estado actual.
+
+### 19.2 Smoke test local — resultados
+
+Ejecutado el 2026-05-08 con DB real, super_admin y ventas reales:
+
+✅ Pasaron:
+- Login (super_admin, ventas, cuenta inactiva, credenciales malas)
+- Crear reserva (huésped nuevo y existente, cálculo correcto)
+- Bloqueo de overlap (post-fix)
+- `calcular_estadia` con fechas sin tarifa muestra error en breakdown
+- Storage policies del bucket `comprobantes-pago` correctas
+- Visibilidad por rol (ventas no ve Chalets/Config/Staff, no ve botón
+  validar pago, no ve select de estado al crear reserva)
+- Mobile responsive en 375px
+- Validación de fechas inválidas (salida ≤ entrada)
+
+🔄 No probados (requieren componentes de fases posteriores):
+- Validar/Rechazar pago — requiere comprobante subido por Agente 1
+  (Fase 3). El form existe y las policies funcionan.
+- Notificaciones realtime al cambio de estado — requiere validar pago.
+- SPA fallback en Vercel — requiere deploy.
+
+### 19.3 Decisiones de esta sesión
+
+- **`SourceBadge` queda binario** (Airbnb / Directo). Decisión §18.4 #5
+  resuelta: priorizar simplicidad visual.
+- **Tareas en StaffTab sin acciones manuales.** Las acciones (iniciar,
+  completar con foto, rechazar) son alcance de Fase 5 con el Agente 3
+  vía WhatsApp. Si se requiere acción manual desde la app, agregar
+  después.
+- **`useAuth + useRol` sin Context Provider** sigue aceptable. Conté
+  ~6 usos de `useAuth` y ~9 de `useRol` (cada `useRol` instancia un
+  `useAuth` interno). Genera ~6-8 suscripciones a `onAuthStateChange`
+  pero no causa bug. Migrar a Context cuando crezca la app.
+
+### 19.4 Próximos pasos
+
+1. Push de `fase-2-app` a GitHub.
+2. Deploy en Vercel (auto si el repo ya está conectado). Configurar
+   env vars: `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`.
+3. Smoke test en producción contra `tlalocan.vercel.app`.
+4. Validar SPA fallback (navegar directo a `/reservas`, `/chalets`).
+5. Versionar las 3 migraciones de §19.1 como archivos en
+   `supabase/migrations/`.
+6. Abrir PR `fase-2-app` → `main` y mergear.
 
 ---
 
