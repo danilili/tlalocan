@@ -53,6 +53,7 @@ export default function ValidarPagoForm({ open, reserva, onClose, onUpdated }) {
   const onValidar = async () => {
     setSubmitting(true);
     setSubmitError(null);
+    const anticipo = Math.round(Number(reserva.monto_total) * 0.5);
     const { error } = await supabase
       .from('reservas')
       .update({
@@ -60,6 +61,7 @@ export default function ValidarPagoForm({ open, reserva, onClose, onUpdated }) {
         validado_por: user?.id ?? null,
         validado_en: new Date().toISOString(),
         motivo_rechazo: null,
+        monto_pagado: anticipo,
       })
       .eq('id', reserva.id);
     setSubmitting(false);
@@ -67,6 +69,7 @@ export default function ValidarPagoForm({ open, reserva, onClose, onUpdated }) {
       setSubmitError(error.message);
       return;
     }
+    notifyHuesped({ reservaId: reserva.id, validada: true });
     onUpdated?.();
     onClose?.();
   };
@@ -78,11 +81,12 @@ export default function ValidarPagoForm({ open, reserva, onClose, onUpdated }) {
     }
     setSubmitting(true);
     setSubmitError(null);
+    const motivoTrim = motivo.trim();
     const { error } = await supabase
       .from('reservas')
       .update({
         estado: 'cancelada',
-        motivo_rechazo: motivo.trim(),
+        motivo_rechazo: motivoTrim,
         validado_por: user?.id ?? null,
         validado_en: new Date().toISOString(),
       })
@@ -92,6 +96,7 @@ export default function ValidarPagoForm({ open, reserva, onClose, onUpdated }) {
       setSubmitError(error.message);
       return;
     }
+    notifyHuesped({ reservaId: reserva.id, validada: false, motivo: motivoTrim });
     onUpdated?.();
     onClose?.();
   };
@@ -248,6 +253,21 @@ function Row({ label, value, highlight }) {
       </span>
     </div>
   );
+}
+
+function notifyHuesped({ reservaId, validada, motivo }) {
+  const url = import.meta.env.VITE_N8N_WEBHOOK_VALIDACION_PAGO;
+  if (!url) {
+    console.warn('VITE_N8N_WEBHOOK_VALIDACION_PAGO no configurado; no se notificó al huésped.');
+    return;
+  }
+  fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ reserva_id: reservaId, validada, motivo: motivo ?? null }),
+  }).catch((err) => {
+    console.error('Falló notificación al huésped:', err);
+  });
 }
 
 function stripBucketPrefix(value, bucket) {
