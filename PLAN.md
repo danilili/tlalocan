@@ -572,6 +572,8 @@ El tab Resumen reemplaza arrays hardcoded por queries a Supabase:
 
 ### Fase 3 — Agente 1: Ventas (M·02)
 
+> **Estado:** funcionalmente cerrada al 2026-05-12. Detalle de workflows, IDs, credenciales y trabajo abierto en [`FASE-3.md`](FASE-3.md). Lo único explícitamente out of scope es el procesamiento automático del comprobante (el subworkflow `Procesar Comprobante Pago` está listo en n8n pero no cableado como tool del Concierge — el huésped manda comprobante y un humano lo procesa manual desde la app).
+
 1. Inspeccionar workflow `Tlalocan Concierge` y replicar el patrón de Redis buffer de memoria como base para los demás agentes.
 2. **Reemplazar `cotizar_estadia`**: ahora llama a `calcular_estadia()` en Supabase. Devuelve total con impuestos desglosados. El agente debe presentar al huésped: noches, subtotal, IVA, impuesto hospedaje, **total**.
 3. **Reemplazar `enviar_fotos_chalets`**: query a `chalets.fotos_url`.
