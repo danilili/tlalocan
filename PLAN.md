@@ -592,6 +592,8 @@ El tab Resumen reemplaza arrays hardcoded por queries a Supabase:
 
 ### Fase 4 — Agente 2: Bienvenida y estancia (M·03)
 
+> **Estado:** kickoff. Alcance MVP del sprint actual, decisiones cerradas, bugs aprendidos de Fase 3, y plan de ataque en [`FASE-4.md`](FASE-4.md). El agente conversacional durante la estancia (punto 5) y el procesamiento automático del comprobante del saldo quedan fuera del alcance del sprint actual.
+
 1. Webhook que recibe `reserva_id` cuando se confirma.
 2. **Mensaje 1 (inmediato):** confirmación con datos del chalet, fechas, monto pagado, contacto Don Dani. Cordial pero conciso.
 3. **Mensaje 2 (24h antes del check-in, hora configurable):**
