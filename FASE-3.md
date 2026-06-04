@@ -35,11 +35,15 @@ saldo 48h antes del check-in.
 
 ## 1. Arquitectura — 2 números, no 3 (decisión 2026-06-04)
 
-| Número / instancia | Público | Agente | Fase |
+| Número / instancia | Público | Flujo | Fase |
 |---|---|---|---|
-| **Huésped** | prospecto + huésped | este agente (ventas + estancia) | 3 (ventas), 4 (estancia) |
-| **Staff operativo** | personal de limpieza | Agente 3 (limpieza) | 5 |
-| **Pagos / administrativo** | equipo de finanzas | flujo de validación de pagos | 3 (§4.1) |
+| **Huésped** | prospecto + huésped | agente ventas + estancia | 3 (ventas), 4 (estancia) |
+| **Interno** (router por rol) | staff limpieza · finanzas | tareas · validación de pagos | 3 (finanzas §4.1), 5 (limpieza) |
+
+**Dos números** (Don Dani no tiene líneas extra). El interno enruta por el
+**teléfono del remitente** (lookup en `usuarios`/`staff`): limpieza → tareas;
+finanzas → validación de pagos. No se mezcla con el de huésped (clientes vs
+internos no deben colisionar).
 
 Un solo número de cara al huésped: es el mismo humano antes y después de
 reservar. La parte de **estancia** (recordatorios, ubicación, wifi) se le **suma
@@ -145,7 +149,9 @@ Huésped manda imagen/PDF
 - **Folio:** referencia corta por reserva para que el admin diga cuál aprueba
   (con varios pagos pendientes a la vez). Definir esquema (¿columna folio? ¿slice
   del UUID? ¿reply citado de Evolution?).
-- **Número de pagos:** 3ra instancia Evolution dedicada (no mezclar con limpieza).
+- **Número:** finanzas vive en el **número interno compartido** (no hay líneas
+  extra para uno dedicado). El router lo distingue del staff de limpieza por el
+  teléfono del remitente.
 
 ### 4.2 Callback de validación app → huésped (HUECO, decisión #4)
 Cuando un humano valida/rechaza en la app, el huésped debe enterarse por WhatsApp.
