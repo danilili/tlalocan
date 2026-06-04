@@ -21,7 +21,9 @@ insert into public.config (key, value, descripcion) values
 on conflict (key) do nothing;
 
 -- ============================================================================
--- 2. TARIFAS — tarifa estándar 2026 (aplica a TODOS los chalets)
+-- 2. TARIFAS GLOBAL — fallback para cualquier chalet sin tarifa específica
+-- (calcular_estadia prefiere la tarifa por chalet de la sección 4; esta solo
+--  aplica si un chalet no tiene la suya. chalet_id = NULL = aplica a todos.)
 -- ============================================================================
 insert into public.tarifas (
   chalet_id, nombre, vigente_desde, vigente_hasta,
@@ -29,7 +31,7 @@ insert into public.tarifas (
   iva_pct, impuesto_hospedaje_pct, prioridad
 ) values (
   null, 'Tarifa estándar 2026', '2026-01-01', null,
-  1500, 2000, 1500,
+  2100, 2500, 2100,
   16, 5, 0
 )
 on conflict do nothing;
@@ -56,3 +58,22 @@ insert into public.chalets (nombre, slug, descripcion, capacidad, fotos_url, act
    'Chalet de fácil acceso, cerca de la entrada.',
    2, '{}', true, 4)
 on conflict (slug) do nothing;
+
+-- ============================================================================
+-- 4. TARIFAS POR CHALET — un override específico por cada chalet
+-- Mismos precios hoy, pero da base para promociones/precios por chalet sin
+-- migrar nada después. calcular_estadia las prefiere sobre la tarifa global.
+-- Idempotente: solo inserta si el chalet aún no tiene tarifa propia.
+-- ============================================================================
+insert into public.tarifas (
+  chalet_id, nombre, vigente_desde, vigente_hasta,
+  precio_lun_jue, precio_vie_sab, precio_domingo,
+  iva_pct, impuesto_hospedaje_pct, prioridad, activa
+)
+select c.id, 'Tarifa ' || c.nombre || ' 2026', '2026-01-01', null,
+       2100, 2500, 2100,
+       16, 5, 0, true
+from public.chalets c
+where not exists (
+  select 1 from public.tarifas t where t.chalet_id = c.id
+);
