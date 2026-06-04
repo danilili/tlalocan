@@ -84,7 +84,12 @@ Filosofía: **muchos flujos pequeños, no uno gigantesco.** Más fácil de mante
 
 ### 2.4 WhatsApp
 
-Evolution API. **Una instancia por agente** (3 instancias totales: ventas, bienvenida, limpieza). Cada una con su propio número o número compartido si Evolution lo permite — verificar al construir M·03.
+Evolution API. **Dos números/instancias, no tres** (revisado 2026-06-04):
+
+1. **Número de cara al huésped** — atención + ventas + estancia. Un mismo prospecto/huésped escribe siempre al mismo número; obligarlo a cambiar de número entre "venta" y "estancia" es mala UX. Detrás corre **un solo agente** que distingue el estatus del contacto consultándolo en Supabase (`huespedes.telefono` → `reservas`) en cada mensaje, e inyecta ese estatus como **contexto** del prompt (no como candado): así maneja casos mixtos (ej. un huésped confirmado que pregunta por otra fecha). Cubre lo que el PLAN llamaba M·02 (ventas) y M·03 (bienvenida/estancia) — se construye por capas: Fase 3 monta el esqueleto + ventas, Fase 4 le suma las tools de estancia al MISMO agente y número.
+2. **Número de cara al staff** — comunicación operativa de limpieza (M·04, Fase 5). Público distinto (staff, no huésped), flujo aparte.
+
+Arquitectura del número de huésped: `Evolution → webhook n8n → Redis buffer (memoria por número) → enriquecer (lookup estatus en Supabase) → agente LLM con todas las tools → responde`. Encaja con la filosofía de flujos chicos y modulares: buffer, enriquecimiento y cada tool son sub-flujos.
 
 ---
 
@@ -653,7 +658,7 @@ El tab Resumen reemplaza arrays hardcoded por queries a Supabase:
 | Comprobante | Subido automáticamente por Agente 1 cuando huésped envía media. Don Dani/Admin valida desde app. |
 | Notificaciones | Push (Realtime) + Email para tipos críticos. |
 | Storage de fotos | Supabase Storage. Migrar fotos de WordPress en Fase 1. |
-| Agente: arquitectura | Una instancia Evolution por agente. Flujos chicos y modulares en n8n. |
+| Agente: arquitectura | **2 números Evolution** (revisado 2026-06-04): uno de cara al huésped (ventas+estancia, un solo agente con estatus desde Supabase como contexto), uno de cara al staff (limpieza). Flujos chicos y modulares en n8n. |
 | Agente: memoria | Redis buffer de memoria obligatorio en los 3 agentes (patrón ya usado en el agente actual). |
 | Agente 1 reservas | Solo cotiza, sube comprobante, marca `pendiente_pago`. No crea `confirmada`. |
 | Agente 3 asignación | Automática según puesto. |
