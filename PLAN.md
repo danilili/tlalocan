@@ -78,9 +78,13 @@ Repo en GitHub (branch `fase-2-app`, pendiente PR → `main`). Desplegada en Ver
 
 ### 2.3 n8n
 
-Existe un workflow: `Tlalocan Concierge` (agente vendedor) con tools `cotizar_estadia` y `enviar_fotos_chalets`, ambos hardcoded. **Ya usa Redis como buffer de memoria** (recibe varios mensajes seguidos y los procesa como uno solo). Este patrón se replica obligatoriamente en los 3 agentes.
+En `reservalia.app.n8n.cloud`. **Fase 3 (M·02, agente de ventas) en progreso — ya muy avanzado** (verificado vía MCP 2026-06-04, ver `FASE-3.md`). El agente de ventas **"Tlalocan Concierge"** no es la demo de 2 tools hardcoded del plan original: son **6 workflows** (main + 5 subworkflows-tool) conectados a Supabase y Evolution, con Redis buffer + memoria, agente "Tlali" y tools de cotizar / fotos / disponibilidad / crear reserva cotizada. Lo central de ventas opera. Falta cerrar el ciclo de pago (ver `FASE-3.md` §4).
+
+**Ya usa Redis como buffer de memoria** (recibe varios mensajes seguidos y los procesa como uno solo). Este patrón se replica en los demás agentes.
 
 Filosofía: **muchos flujos pequeños, no uno gigantesco.** Más fácil de mantener y debuggear.
+
+> **Lección recurrente de esta sesión:** los docs iban por detrás del estado real (tanto en git como en n8n). Al retomar, SIEMPRE verificar primero: `git fetch` + comparar ramas, y `get_workflow_details` en n8n, ANTES de asumir o construir.
 
 ### 2.4 WhatsApp
 

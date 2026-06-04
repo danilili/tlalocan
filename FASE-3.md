@@ -250,4 +250,42 @@ para Fase 4?
 
 ---
 
+## 10. Estado al cierre de sesión — 2026-06-04
+
+**Decidido esta sesión:**
+- Arquitectura **2 números** (sin líneas extra): huésped (ventas+estancia) e
+  interno compartido (staff limpieza + finanzas, router por teléfono).
+- Comprobante: visión filtra+asiste (no auto-aprueba) → escala a finanzas →
+  validación dual WhatsApp+app (idempotente). Folio para referenciar el pago.
+
+**Hecho (commiteado en `fase-3-agente-ventas`, SIN push):**
+- Bug en vivo resuelto: prompt de Tlali ya no hardcodea precios (drift 1500/2000
+  vs DB 2100/2500). *Editado a mano en n8n por Don Dani.*
+- Migración `0024_reservas_folio.sql` (columna `folio`, aplicada en vivo).
+- Subworkflow `Tlalocan - Validar Comprobante (Vision)` (`K9qTzLN1nnu9FJmB`).
+- Docs reescritos al estado real (este archivo + PLAN §2.3/§2.4/§5).
+
+**Pendiente manual de Don Dani (destraba el resto):**
+1. Enlazar la credencial `OpenAi account` en el nodo "OpenAI Vision" del
+   subworkflow `K9qTzLN1nnu9FJmB` (1 clic; el SDK no la auto-asignó).
+2. Conseguir la **instancia interna de Evolution** (URL, API key, instancia) — basta
+   1 línea nueva (eSIM/virtual/Cloud API).
+3. Datos del **personal de finanzas** (nombre + teléfono) para alta en `usuarios`.
+4. (Opcional) Una **URL pública de un comprobante** de muestra para probar la visión.
+
+**Siguiente trabajo (cuando haya lo de arriba):**
+- Probar el subworkflow de visión con una imagen real.
+- Manejo de media en el webhook del huésped + resolver reserva activa + cablear
+  `Procesar Comprobante Pago` + visión + escalamiento al número interno (finanzas).
+- Flujo en el número interno: parsear `APROBAR/RECHAZAR <folio>` → actualizar
+  reserva (idempotente) → notificar huésped.
+- App: `ValidarPagoForm` dispara `VITE_N8N_WEBHOOK_VALIDACION_PAGO` al validar.
+- Decidir cotización chalet-agnóstica (§3.2) y enriquecimiento de estatus (§4.3).
+
+**Git:** rama `fase-3-agente-ventas`, último commit de docs/folio/visión. `main` y
+`fase-2-app` quedaron con Fase 2 mergeada (PR #3). La rama de Fase 3 NO se ha
+pusheado aún.
+
+---
+
 *Este archivo se mantiene actualizado durante la Fase 3.*
