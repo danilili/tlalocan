@@ -153,6 +153,15 @@ Huésped manda imagen/PDF
   extra para uno dedicado). El router lo distingue del staff de limpieza por el
   teléfono del remitente.
 
+**Avance 2026-06-04:**
+- Columna `reservas.folio` creada (migración `0024`, secuencia desde 1001) para
+  que finanzas referencie el pago a validar.
+- Subworkflow de visión **construido**: `Tlalocan - Validar Comprobante (Vision)`
+  (ID `K9qTzLN1nnu9FJmB`). Entrada `media_url, mimetype, monto_esperado` → GPT-4o-mini
+  visión → `{ es_comprobante, monto, fecha, referencia, banco, confianza, motivo }`.
+  **Pendiente:** enlazar a mano la credencial `OpenAi account` en el nodo
+  "OpenAI Vision" (el auto-assign del SDK la omitió), luego probar y cablear.
+
 ### 4.2 Callback de validación app → huésped (HUECO, decisión #4)
 Cuando un humano valida/rechaza en la app, el huésped debe enterarse por WhatsApp.
 - **n8n:** crear sub-flujo con Webhook Trigger que reciba
