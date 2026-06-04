@@ -689,4 +689,51 @@ Pendiente:
 
 ---
 
+## 20. Estado al cierre de sesión — 2026-06-04
+
+> Sesión corta. La app ya estaba desplegada y funcionando en
+> `tlalocan.vercel.app` desde el cierre del 08-may (§19). El único
+> cambio de producto fue el modelo de tarifa por chalet.
+
+### 20.1 Tarifa por chalet (commit `b27d651`, pusheado)
+
+A petición de Don Dani: cada chalet ahora tiene su **propia tarifa**
+(override específico), aunque hoy todos compartan precio. El objetivo es
+poder meter **promociones/precios por chalet** después sin migrar nada.
+
+- **Precios actualizados:** dom–jue **$2,100**, vie–sáb **$2,500**
+  (antes 1,500 / 2,000).
+- Aplicado en la **base en vivo** (`spnqatgiopfjczqwlzms`) y en
+  `supabase/seed.sql` (nueva sección 4, idempotente con `not exists`,
+  referenciando los chalets por relación). La tarifa global
+  (`chalet_id = NULL`) se conserva como fallback con los mismos precios.
+- `calcular_estadia` ya prefería la tarifa específica del chalet sobre
+  la global, así que no se tocó la función. Ejemplo verificado:
+  De La Cima, 12–15 jun = subtotal $7,100 · IVA $1,136 ·
+  hospedaje $355 · **total $8,591**.
+
+### 20.2 Nota de proceso (importante para retomar)
+
+Esta sesión arrancó sobre la base **vieja del 05-06** sin hacer `fetch`
+primero, y re-descubrió bugs ya resueltos en el remoto (el race de
+`useRol`, ya corregido en `c5fc89c`). Se reconcilió con
+`reset --hard origin/fase-2-app` + cherry-pick del commit de tarifas.
+**Regla para la próxima vez:** al retomar, `git fetch` y comparar
+`local` vs `origin/fase-2-app` ANTES de tocar código.
+
+### 20.3 Credenciales
+
+El password del super_admin (`reservaciones@tlalocanchalets.mx`) se
+reseteó a un temporal (`Tlalocan2026!`) vía pgcrypto porque no se
+recordaba. **Pendiente que Don Dani lo cambie.** El de ventas
+(`dnl.mendez.a@gmail.com`) quedó intacto.
+
+### 20.4 Pendientes (sin cambios respecto a §19.4)
+
+- Abrir PR `fase-2-app` → `main` y mergear.
+- Validar Production tras merge.
+- Comenzar Fase 3 (Agente 1 — Ventas) según PLAN.md §4.
+
+---
+
 *Este archivo se mantiene actualizado durante la Fase 2. Al cerrar la fase, archivar y referenciar desde PLAN.md.*

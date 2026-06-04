@@ -62,13 +62,13 @@ Los 4 también se rentan en Airbnb (fuera del alcance de este proyecto).
 
 ### 2.1 App (este repo)
 
-Frontend React + Vite, todo hardcoded en `src/App.jsx` (584 líneas). Era la demo de venta. Sin Supabase, sin formulario de nueva reserva, login ficticio.
+Frontend React + Vite. **M·01 construido y desplegado** (Fase 2 cerrada — ver `FASE-2.md` §19–20). La demo hardcoded original (`src/App.jsx`, 584 líneas) se refactorizó en módulos (`tabs/`, `forms/`, `hooks/`, `components/`, `pages/`, `lib/`) y se conectó a Supabase: auth real, login, formulario de nueva reserva con `calcular_estadia`, validación de pago, notificaciones realtime y control por rol.
 
-Tabs: Resumen · Reservas · Huéspedes · Staff.
+Tabs: Resumen · Reservas · Huéspedes · Chalets · Staff · Config (los 2 últimos solo super_admin).
 
-Diseño: se conserva (tokens dorados/oscuros, Cormorant Garamond + DM Sans). **No rediseñar visualmente, solo refactorizar y conectar a datos reales.**
+Diseño: se conservó (tokens dorados/oscuros, Cormorant Garamond + DM Sans). **No rediseñar visualmente.**
 
-Repo en GitHub. Desplegada en Vercel (`tlalocan.vercel.app`). MCP de GitHub disponible para manejo de versiones.
+Repo en GitHub (branch `fase-2-app`, pendiente PR → `main`). Desplegada en Vercel (`tlalocan.vercel.app`) con env vars configuradas. MCP de GitHub disponible para manejo de versiones.
 
 **Pensar la app desde el inicio como producto fork-able**: en el futuro se podría revender a otros negocios de hospedaje similares. No multi-tenant — cada cliente sería su propio fork con su propia DB. Sin `tenant_id` en tablas. Branding configurable vía `branding.config.js`.
 
@@ -138,19 +138,23 @@ create table tarifas (
 );
 ```
 
-**Carga inicial (una sola fila):**
+**Carga inicial (actualizada 2026-06-04 — una tarifa por chalet + una global de fallback):**
+
+Cada chalet tiene su **propia tarifa** (override específico) aunque hoy compartan precio, para soportar promociones/precios por chalet sin migrar después. Se conserva además una tarifa global (`chalet_id = NULL`) como fallback. Todas con:
 ```
-nombre: "Tarifa estándar 2026"
-chalet_id: NULL
 vigente_desde: 2026-01-01
 vigente_hasta: NULL
-precio_lun_jue: 1500
-precio_vie_sab: 2000
-precio_domingo: 1500
+precio_lun_jue: 2100        # dom–jue
+precio_vie_sab: 2500        # vie–sáb
+precio_domingo: 2100
 iva_pct: 16
 impuesto_hospedaje_pct: 5
 prioridad: 0
 ```
+- Por chalet: `nombre = "Tarifa <nombre chalet> 2026"`, `chalet_id = <chalet>`.
+- Global: `nombre = "Tarifa estándar 2026"`, `chalet_id = NULL`.
+
+Definición en `supabase/seed.sql` (secciones 2 y 4). Precios anteriores eran 1500/2000.
 
 **Función SQL `calcular_estadia(chalet_id, fecha_entrada, fecha_salida)`:**
 
@@ -159,15 +163,15 @@ Devuelve:
 {
   "noches": 3,
   "desglose": [
-    { "fecha": "2026-05-08", "dia_semana": "vie", "precio_neto": 2000 },
-    { "fecha": "2026-05-09", "dia_semana": "sab", "precio_neto": 2000 },
-    { "fecha": "2026-05-10", "dia_semana": "dom", "precio_neto": 1500 }
+    { "fecha": "2026-05-08", "dia_semana": "vie", "precio_neto": 2500 },
+    { "fecha": "2026-05-09", "dia_semana": "sab", "precio_neto": 2500 },
+    { "fecha": "2026-05-10", "dia_semana": "dom", "precio_neto": 2100 }
   ],
-  "subtotal_neto": 5500,
-  "iva": 880,
-  "impuesto_hospedaje": 275,
-  "total": 6655,
-  "tarifa_aplicada": "Tarifa estándar 2026"
+  "subtotal_neto": 7100,
+  "iva": 1136,
+  "impuesto_hospedaje": 355,
+  "total": 8591,
+  "tarifa_aplicada": "Tarifa De La Cima 2026"
 }
 ```
 
