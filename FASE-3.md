@@ -38,7 +38,8 @@ saldo 48h antes del check-in.
 | Número / instancia | Público | Agente | Fase |
 |---|---|---|---|
 | **Huésped** | prospecto + huésped | este agente (ventas + estancia) | 3 (ventas), 4 (estancia) |
-| **Staff** | personal de limpieza | Agente 3 (limpieza) | 5 |
+| **Staff operativo** | personal de limpieza | Agente 3 (limpieza) | 5 |
+| **Pagos / administrativo** | equipo de finanzas | flujo de validación de pagos | 3 (§4.1) |
 
 Un solo número de cara al huésped: es el mismo humano antes y después de
 reservar. La parte de **estancia** (recordatorios, ubicación, wifi) se le **suma
@@ -108,19 +109,43 @@ mostrada usaría De La Cima.)
 
 ## 4. Trabajo restante real de Fase 3
 
-### 4.1 Ingesta de comprobante (HUECO)
-El subworkflow `Procesar Comprobante Pago` existe, pero:
-- **No está cableado como tool** del agente (el agente solo tiene 4 tools).
-- El webhook del main solo lee **texto** (`body.data.message.conversation`); no
-  maneja imágenes/PDF.
-- El prompt instruye a Tlali a solo **acusar recibo** ("lo validamos y te
-  confirmamos") sin procesar.
+### 4.1 Ingesta + validación + escalamiento de comprobante (diseño 2026-06-04)
 
-→ Hoy el huésped manda el comprobante y **nada lo sube a Storage ni pasa la
-reserva a `pendiente_pago`**. La reserva se queda en `cotizada`. **Falta:**
-detectar mensajes con media en el webhook, y disparar `Procesar Comprobante Pago`
-(como tool o como rama del flujo). *Verificar primero si existe otro workflow de
-media que no aparezca en la búsqueda.*
+**Estado actual:** el subworkflow `Procesar Comprobante Pago`
+(`fnhLuzLGy93poEuP`) recibe `reserva_id, media_url, mimetype`, descarga, sube a
+Storage `comprobantes-pago/{id}/comprobante.{ext}` (Postgres + HTTP custom auth) y
+actualiza la reserva a `pendiente_pago` **solo si está en `cotizada`/
+`pendiente_pago`**. Sólido, pero: **no valida la imagen, no está cableado, y el
+webhook del huésped solo lee texto** (`body.data.message.conversation`). Hoy el
+huésped manda la ficha y **no pasa nada** → la reserva se queda en `cotizada`.
+
+**Diseño acordado:**
+
+```
+Huésped manda imagen/PDF
+ → webhook detecta media → resuelve reserva activa del huésped
+   (última cotizada/pendiente_pago por teléfono)
+ → [VISIÓN] ¿es ficha bancaria? extrae monto / fecha / referencia (GPT-4o-mini)
+     · No  → "eso no parece un comprobante, ¿me lo reenvías?" (no escala)
+     · Sí  → Procesar Comprobante Pago (sube a Storage, pasa a pendiente_pago)
+            → ESCALA al NÚMERO DE PAGOS (finanzas) con: huésped, chalet, fechas,
+              anticipo esperado, monto detectado, la imagen y un FOLIO corto
+ → Finanzas responde por WhatsApp: "APROBAR <folio>" / "RECHAZAR <folio> <motivo>"
+   → actualiza reserva (confirmada/cancelada) → notifica al huésped (§4.2)
+```
+
+**Reglas / pendientes de implementación:**
+- **Visión = filtro + asistente, NUNCA auto-aprueba.** Descarta basura y pre-llena
+  el monto; la validación sigue siendo humana (regla de oro).
+- **Validación dual (WhatsApp + app):** ambos canales actualizan la misma reserva;
+  el primero gana. **Idempotencia:** actuar solo si sigue en `pendiente_pago`; si
+  no, responder "ya fue validada".
+- **Identidad:** validar por WhatsApp llena `validado_por` → mapear el teléfono del
+  admin a un registro en `usuarios` (alta del personal de finanzas como usuarios).
+- **Folio:** referencia corta por reserva para que el admin diga cuál aprueba
+  (con varios pagos pendientes a la vez). Definir esquema (¿columna folio? ¿slice
+  del UUID? ¿reply citado de Evolution?).
+- **Número de pagos:** 3ra instancia Evolution dedicada (no mezclar con limpieza).
 
 ### 4.2 Callback de validación app → huésped (HUECO, decisión #4)
 Cuando un humano valida/rechaza en la app, el huésped debe enterarse por WhatsApp.
@@ -180,10 +205,13 @@ para Fase 4?
 - [x] Crea reserva `cotizada` con montos snapshot y datos bancarios.
 - [x] `verificar_disponibilidad` con escalamiento si los 4 ocupados.
 - [x] Prompt reconciliado con precios nuevos (§3.1).
-- [ ] Ingesta de comprobante funcional: huésped manda media → Storage →
-      `pendiente_pago` → campana de la app suena (realtime).
-- [ ] Callback de validación: humano valida en app → huésped recibe confirmación/
-      rechazo por WhatsApp.
+- [ ] Ingesta de comprobante: huésped manda media → visión confirma que es ficha
+      bancaria → Storage → `pendiente_pago` → escala al número de pagos.
+- [ ] Validación dual: finanzas aprueba/rechaza por WhatsApp O en la app; ambos
+      actualizan la reserva (idempotente, primero gana).
+- [ ] Callback de validación: al validar/rechazar (cualquier canal) el huésped
+      recibe confirmación/rechazo por WhatsApp.
+- [ ] Personal de finanzas dado de alta en `usuarios` (para `validado_por`).
 - [ ] Decisión y acción sobre cotización chalet-agnóstica (§3.2).
 - [ ] Decisión sobre enriquecimiento de estatus (§4.3) — o explícitamente diferido
       a Fase 4.
