@@ -162,15 +162,24 @@ Huésped manda imagen/PDF
   **Pendiente:** enlazar a mano la credencial `OpenAi account` en el nodo
   "OpenAI Vision" (el auto-assign del SDK la omitió), luego probar y cablear.
 
-### 4.2 Callback de validación app → huésped (HUECO, decisión #4)
+### 4.2 Callback de validación app → huésped (CONSTRUIDO 2026-06-05)
 Cuando un humano valida/rechaza en la app, el huésped debe enterarse por WhatsApp.
-- **n8n:** crear sub-flujo con Webhook Trigger que reciba
-  `{ reserva_id, validada: bool, motivo? }` y mande el mensaje por la instancia
-  de huésped.
-- **App (este repo):** en `ValidarPagoForm`, tras el update a `confirmada`/
-  `cancelada`, `fetch(POST)` al webhook con `VITE_N8N_WEBHOOK_VALIDACION_PAGO`
-  (ya existe vacío en `.env*`). Llenar URL + configurar en Vercel. Best-effort: si
-  el webhook falla, no romper la validación.
+- **n8n:** sub-flujo `Tlalocan - Notificar Validacion Huesped` (ID `7SFqV2P5LdAEihAA`)
+  **construido**. Webhook `POST /webhook/validacion-pago-huesped` recibe
+  `{ reserva_id, validada: bool, motivo? }` → Lookup Postgres (huésped, chalet,
+  fechas, montos + `evolution_server_url`/`evolution_instance_ventas` de `config`)
+  → Code arma mensaje (confirmación o rechazo+motivo) → envía por Evolution
+  (instancia **ventas** = huésped). Patrón copiado de `Notificar Operaciones`
+  (`xuXo3Bh9t4pimqtd`). El apikey de Evolution sale de la credencial n8n
+  `Header Auth account` (única `httpHeaderAuth`), NO de la DB.
+  - **Pendiente manual (Don Dani, el SDK no auto-asigna credenciales):**
+    1. Enlazar credencial **Postgres** (`Tlalocan Postgres`) en nodo "Lookup Datos".
+    2. Enlazar credencial **Header Auth** (`Header Auth account`) en "Enviar WhatsApp".
+    3. **Activar** el workflow (queda inactivo al crearse).
+- **App (este repo):** `ValidarPagoForm` **ya** dispara `notificarHuesped(...)` →
+  `POST` a `VITE_N8N_WEBHOOK_VALIDACION_PAGO` con `{reserva_id, validada, motivo?}`
+  tras un cambio efectivo (best-effort, no rompe la validación). La URL ya está en
+  `.env.local`; **falta configurarla en Vercel**.
 
 ### 4.3 Enriquecimiento de estatus (prospecto vs huésped)
 No existe. Para ventas puras no es urgente (todos se tratan como prospecto). Se
@@ -222,10 +231,10 @@ para Fase 4?
 - [x] Prompt reconciliado con precios nuevos (§3.1).
 - [ ] Ingesta de comprobante: huésped manda media → visión confirma que es ficha
       bancaria → Storage → `pendiente_pago` → escala al número de pagos.
-- [ ] Validación dual: finanzas aprueba/rechaza por WhatsApp O en la app; ambos
-      actualizan la reserva (idempotente, primero gana).
-- [ ] Callback de validación: al validar/rechazar (cualquier canal) el huésped
-      recibe confirmación/rechazo por WhatsApp.
+- [~] Validación dual: app YA es idempotente (`ValidarPagoForm` actualiza solo si
+      sigue en `pendiente_pago`, primero gana). Falta el lado WhatsApp de finanzas.
+- [~] Callback de validación: app dispara webhook + sub-flujo n8n construido
+      (`7SFqV2P5LdAEihAA`). Falta: enlazar 2 credenciales + activar + URL en Vercel.
 - [ ] Personal de finanzas dado de alta en `usuarios` (para `validado_por`).
 - [ ] Decisión y acción sobre cotización chalet-agnóstica (§3.2).
 - [ ] Decisión sobre enriquecimiento de estatus (§4.3) — o explícitamente diferido
@@ -285,6 +294,38 @@ para Fase 4?
 **Git:** rama `fase-3-agente-ventas`, último commit de docs/folio/visión. `main` y
 `fase-2-app` quedaron con Fase 2 mergeada (PR #3). La rama de Fase 3 NO se ha
 pusheado aún.
+
+---
+
+## 11. Estado al cierre de sesión — 2026-06-05
+
+**Verificado al abrir (los docs coincidían con la realidad, sin drift):**
+- Concierge (`TQKziRbmCiyNC6CQ`) sin cambios; webhook sigue leyendo solo texto.
+- Subworkflow visión (`K9qTzLN1nnu9FJmB`): Don Dani ya **enlazó la credencial
+  OpenAI** y lo activó (pendiente manual #1 del 06-04, resuelto).
+
+**Hecho esta sesión (SIN commit aún):**
+- **App `ValidarPagoForm`** ahora es idempotente (update solo si sigue en
+  `pendiente_pago`; si otro canal ganó, avisa "ya fue validada") y dispara el
+  callback `notificarHuesped(...)` best-effort. `npm run build` OK.
+- **Callback §4.2 construido**: `Tlalocan - Notificar Validacion Huesped`
+  (`7SFqV2P5LdAEihAA`), webhook `/webhook/validacion-pago-huesped`. Decisión de
+  diseño resuelta copiando `Notificar Operaciones`: server_url/instance de `config`,
+  apikey de la credencial n8n `Header Auth account` (no en DB).
+- `.env.local`: `VITE_N8N_WEBHOOK_VALIDACION_PAGO` lleno con la URL del callback.
+
+**Pendiente manual de Don Dani (destraba el callback):**
+1. En `7SFqV2P5LdAEihAA`: enlazar credencial **Postgres** (`Tlalocan Postgres`) en
+   "Lookup Datos" + **Header Auth** (`Header Auth account`) en "Enviar WhatsApp",
+   y **activar** el workflow (el SDK no auto-asigna credenciales).
+2. Configurar `VITE_N8N_WEBHOOK_VALIDACION_PAGO` en **Vercel** (ya está en local).
+3. Confirmar que `Header Auth account` es efectivamente el apikey de la instancia
+   **ventas** de Evolution (es la única `httpHeaderAuth` y la que usa Notificar
+   Operaciones, así que debería; verificar al probar).
+
+**Sigue bloqueado (pendientes manuales viejos):**
+- Instancia **interna** de Evolution + alta de **finanzas** en `usuarios` → manejo
+  de media en Concierge, escalamiento, y lado WhatsApp de la validación dual.
 
 ---
 
