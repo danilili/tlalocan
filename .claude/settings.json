@@ -10,7 +10,12 @@
       "Bash(git ls-remote *)",
       "Bash(git init *)",
       "Bash(git remote *)",
-      "Bash(git fetch *)"
+      "Bash(git fetch *)",
+      "Bash(git commit -m ' *)",
+      "Bash(git checkout *)",
+      "Bash(git add *)",
+      "Bash(npm install *)",
+      "Bash(npx vite *)"
     ],
     "additionalDirectories": [
       "/tmp",

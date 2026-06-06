@@ -324,8 +324,34 @@ pusheado aún.
    Operaciones, así que debería; verificar al probar).
 
 **Sigue bloqueado (pendientes manuales viejos):**
-- Instancia **interna** de Evolution + alta de **finanzas** en `usuarios` → manejo
-  de media en Concierge, escalamiento, y lado WhatsApp de la validación dual.
+- Instancia **interna** de Evolution: **obtenida 2026-06-05**. Número interno en WA
+  normal (chip Telcel en el Redmi de Tlalocan; ventas sigue en WA Business). En
+  `config`: `evolution_instance_interno` = `Tlalocan Interno`, `telefono_interno` =
+  `5213320445606`. **Apikey** va en credencial n8n nueva `Evolution Interno`
+  (httpHeaderAuth, header `apikey`) — NO en la DB (igual que ventas). **Pendiente:**
+  crear esa credencial + confirmar instancia "open".
+- **Alta de finanzas: HECHA 2026-06-05.** Giovanna Anaya en `usuarios` (rol `admin`
+  — el CHECK solo permite super_admin/admin/ventas, sin `finanzas`; `usuarios.id`
+  tiene FK a `auth.users`, así que se creó su cuenta de auth primero). tel
+  `5213319416414` para mapear el validador de WhatsApp → `validado_por`.
+
+**Flujo interno APROBAR/RECHAZAR — CONSTRUIDO 2026-06-05**
+- `Tlalocan - Validacion Finanzas (WhatsApp)` (`9vAEtuZbYDaTaTBN`), webhook
+  `POST /webhook/finanzas-interno`. Finanzas escribe `APROBAR <folio>` o
+  `RECHAZAR <folio> <motivo>` → valida remitente (su tel en `usuarios`, rol
+  admin/super_admin = `validado_por`) → update idempotente (solo si
+  `pendiente_pago`) → responde a finanzas → notifica al huésped reusando el
+  callback `7SFqV2P5LdAEihAA`. La respuesta a finanzas usa el `apikey` del webhook
+  entrante (instancia interna) → **no necesita** la credencial `Evolution Interno`.
+- **Pendiente manual (Don Dani):**
+  1. Enlazar credencial **`Tlalocan Postgres`** en nodo "Procesar Validacion" + **activar**.
+  2. En Evolution: apuntar el **webhook de la instancia interna** (evento
+     messages-upsert) a `https://reservalia.app.n8n.cloud/webhook/finanzas-interno`.
+
+**Sigue pendiente:**
+- Credencial n8n `Evolution Interno` (apikey instancia interna) — necesaria solo
+  para el escalamiento *saliente* del Concierge a finanzas, no para el flujo de arriba.
+- Manejo de media + escalamiento a finanzas en el Concierge (PRODUCCIÓN → a mano en UI).
 
 ---
 
