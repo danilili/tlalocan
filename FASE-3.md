@@ -109,6 +109,16 @@ recibe `chalet_slug` y cotiza el real, o se asume precio uniforme y se documenta
 correcto — así que el monto de la reserva creada es correcto; solo la cotización
 mostrada usaría De La Cima.)
 
+**Verificado 2026-06-10:** los precios viven en la tabla `tarifas` (una estándar
+`chalet_id=null` + 4 por-chalet, creadas 06-04). **Los 4 chalets tienen HOY el mismo
+precio** (lun-jue $2,100 / vie-sáb $2,500 / dom $2,100) → el bug es **latente, sin
+impacto actual**. **RESUELTO 2026-06-10:** `cotizar_estadia` ya recibe `chalet_slug` (opcional). El query
+de `Calcular Estadia` resuelve `coalesce(chalet por slug, primer chalet activo)` →
+cotiza el chalet real cuando se pasa el slug, y cae al default (De La Cima) cuando se
+omite. Verificado a nivel query (slug→su tarifa). En el Concierge el tool `cotizar_estadia`
+expone `chalet_slug` (AI decide) y el prompt instruye pasarlo cuando el huésped ya eligió.
+Ya es seguro tener tarifas por-chalet distintas.
+
 ---
 
 ## 4. Trabajo restante real de Fase 3
@@ -229,16 +239,24 @@ para Fase 4?
 - [x] Crea reserva `cotizada` con montos snapshot y datos bancarios.
 - [x] `verificar_disponibilidad` con escalamiento si los 4 ocupados.
 - [x] Prompt reconciliado con precios nuevos (§3.1).
-- [ ] Ingesta de comprobante: huésped manda media → visión confirma que es ficha
-      bancaria → Storage → `pendiente_pago` → escala al número de pagos.
+- [x] Ingesta de comprobante: subworkflow `Tlalocan - Ingesta Comprobante`
+      (`djnNoB36EvzGTpJY`) **probado de punta a punta 2026-06-09** (resuelve reserva
+      → baja media → visión → Storage → `pendiente_pago` → acuse al huésped). Único
+      pendiente: escalamiento saliente a finanzas (credencial `Evolution Interno`). Ver §12.
 - [~] Validación dual: app YA es idempotente (`ValidarPagoForm` actualiza solo si
       sigue en `pendiente_pago`, primero gana). Falta el lado WhatsApp de finanzas.
-- [~] Callback de validación: app dispara webhook + sub-flujo n8n construido
-      (`7SFqV2P5LdAEihAA`). Falta: enlazar 2 credenciales + activar + URL en Vercel.
-- [ ] Personal de finanzas dado de alta en `usuarios` (para `validado_por`).
-- [ ] Decisión y acción sobre cotización chalet-agnóstica (§3.2).
-- [ ] Decisión sobre enriquecimiento de estatus (§4.3) — o explícitamente diferido
-      a Fase 4.
+- [x] Callback de validación: **validado end-to-end 2026-06-10** desde la app
+      desplegada → webhook (`VITE_N8N_WEBHOOK_VALIDACION_PAGO` ya en Vercel) → sub-flujo
+      `7SFqV2P5LdAEihAA` (credenciales enlazadas, activo) → huésped notificado por
+      WhatsApp (instancia ventas, que sí entrega).
+- [x] Personal de finanzas dado de alta en `usuarios` (Giovanna admin + Daniel
+      super_admin, 2026-06-05) — para `validado_por`.
+- [x] Cotización chalet-agnóstica (§3.2): **RESUELTO 2026-06-10**. `cotizar_estadia`
+      ahora recibe `chalet_slug` (opcional) y cotiza el chalet real (verificado: slug →
+      su tarifa; vacío → default De La Cima). Tool en Concierge con `chalet_slug` (AI
+      decide) + prompt actualizado + publicado.
+- [x] Enriquecimiento de estatus (§4.3): **diferido a Fase 4** (no urgente para ventas;
+      necesario al unificar estancia).
 
 ---
 
@@ -352,6 +370,126 @@ pusheado aún.
 - Credencial n8n `Evolution Interno` (apikey instancia interna) — necesaria solo
   para el escalamiento *saliente* del Concierge a finanzas, no para el flujo de arriba.
 - Manejo de media + escalamiento a finanzas en el Concierge (PRODUCCIÓN → a mano en UI).
+
+---
+
+## 12. Estado al cierre de sesión — 2026-06-09 (lectura de media)
+
+**Verificado al abrir (sin drift):** Concierge (`TQKziRbmCiyNC6CQ`) sigue leyendo
+solo texto (`body.data.message.conversation`). Visión (`K9qTzLN1nnu9FJmB`) y
+Procesar Comprobante (`fnhLuzLGy93poEuP`) **asumen un `media_url` HTTP-fetcheable**
+— pero el media de WhatsApp por Evolution viene cifrado, no como URL pública. Ese
+era el puente faltante. Teléfono en `huespedes.telefono` = **solo dígitos**
+(`crear_reserva` hace `.replace(/\D/g,'')`).
+
+**Construido esta sesión — subworkflow `Tlalocan - Ingesta Comprobante`
+(`djnNoB36EvzGTpJY`)** vía SDK (workflow NUEVO = seguro). Orquesta toda la cadena:
+1. **Resolver Reserva** (Postgres): última `cotizada`/`pendiente_pago` por teléfono
+   (normaliza `remoteJid` a dígitos). Si no hay → acuse "no encuentro reserva".
+2. **Obtener Base64** (HTTP) → `POST {server_url}/chat/getBase64FromMediaMessage/{instance}`
+   con header `apikey` del webhook (instancia ventas). Resuelve el cifrado.
+3. **Preparar Media** (Code): arma `dataUri` (`data:<mime>;base64,…`) para visión,
+   detecta PDF, calcula anticipo esperado.
+4. **Es PDF?** → PDF: marca comprobante sin lectura (decisión 06-09). Imagen:
+   **Analizar Visión** (Execute Workflow → `K9qTzLN1nnu9FJmB`, le pasa el `dataUri`
+   como `media_url` — OpenAI acepta data URIs).
+5. **Es Comprobante?** → no: acuse "eso no parece comprobante". Sí:
+   **Comprobante a Binario** (base64→binario) → **Subir a Storage**
+   (`comprobantes-pago/{id}/comprobante.ext`) → **Actualizar Reserva** (idempotente,
+   solo si `cotizada`/`pendiente_pago`).
+6. **Actualizó?** → no: acuse "ya validada". Sí: **Construir Escalamiento** (folio,
+   huésped, chalet, fechas, anticipo, monto detectado) → **Acuse al Huésped**
+   (ventas) → **Recipientes Finanzas** (`usuarios` rol admin/super_admin activos con
+   tel) → **Enviar a Finanzas**: `sendMedia` con la imagen + caption por la
+   **instancia interna** (`evolution_instance_interno` + `evolution_server_url` de
+   `config`).
+
+**Pendiente manual de Don Dani (destraba todo):**
+1. **Rama de media en el Concierge** (PRODUCCIÓN → a mano en la UI, NO con SDK):
+   - Insertar un nodo **IF "¿Es Media?"** justo después del **Webhook**.
+     Condición (OR, loose): `{{ $json.body.data.messageType }}` equals `imageMessage`
+     **o** equals `documentMessage`.
+   - **true** → nodo **Execute Sub-workflow** → `Tlalocan - Ingesta Comprobante`
+     (`djnNoB36EvzGTpJY`), inputs (referenciar `$('Webhook').item.json.body…`):
+     `remoteJid`=`…data.key.remoteJid`, `server_url`=`…server_url`,
+     `apikey`=`…apikey`, `instance`=`…instance`, `message_id`=`…data.key.id`,
+     `key_remote_jid`=`…data.key.remoteJid`, `key_from_me`=`…data.key.fromMe`,
+     `mimetype`=`{{ $json.body.data.message.imageMessage?.mimetype ?? $json.body.data.message.documentMessage?.mimetype }}`.
+   - **false** → conectar al ya existente **"Obtener Mensajes Previos"** (flujo texto).
+   - Reapuntar la salida del **Webhook**: Webhook → "¿Es Media?" (en vez de →
+     "Obtener Mensajes Previos").
+   - La instancia de ventas ya reenvía media al mismo webhook (no hay cambio en
+     Evolution para ventas).
+2. **Credenciales en `djnNoB36EvzGTpJY`** (el SDK no auto-asigna las HTTP; las 3
+   Postgres SÍ quedaron con `Tlalocan Postgres`):
+   - **Subir a Storage** → enlazar la credencial **httpCustomAuth de Supabase
+     Storage** (la MISMA que usa `Procesar Comprobante Pago > Subir a Storage`).
+   - **Enviar a Finanzas** → enlazar credencial **httpHeaderAuth `Evolution Interno`**
+     (la apikey de la instancia interna; sigue pendiente de crear, §11).
+   - "Obtener Base64", "Acuse al Huésped" y "Responder Huésped" NO necesitan
+     credencial (usan el `apikey` del webhook como valor de header).
+
+**A verificar al probar** (supuestos sobre la API de Evolution, no confirmados aún):
+- `getBase64FromMediaMessage`: si con `{message:{key:{id}}}` no basta, pasar el
+  objeto `data` completo del webhook.
+- `sendMedia`: cuerpo plano `{number, mediatype, mimetype, media(base64), fileName,
+  caption}`; si la versión lo quiere anidado bajo `mediaMessage`, ajustar.
+- Code "Comprobante a Binario" usa `this.helpers.prepareBinaryData`; si la versión
+  del Code node no lo expone en `this`, probar `$helpers`.
+- `Procesar Comprobante Pago` (`fnhLuzLGy93poEuP`) queda **superado** por este
+  subworkflow (la ingesta sube a Storage y actualiza inline). Se puede archivar
+  cuando la ingesta esté probada.
+
+**PROBADO de punta a punta — 2026-06-09 (ejecución 7815):** huésped manda foto →
+Concierge enruta a la ingesta → Resolver Reserva (folio 1001) → getBase64 (Evolution)
+→ Visión (`es_comprobante:true`, monto, banco) → Comprobante a Binario
+(`prepareBinaryData` ok) → Subir a Storage (200) → reserva a `pendiente_pago` con
+`comprobante_url` → Acuse al huésped enviado. Verificados los 3 supuestos (endpoint
+`getBase64FromMediaMessage`, helper de binario, forma del flujo).
+
+Tropiezos resueltos en vivo (todos aplicados):
+1. **Publicar, no solo guardar:** este n8n corre la versión *publicada*; el IF en
+   el Concierge no surtía efecto hasta `publish` (de los 3 workflows: visión, ingesta,
+   Concierge).
+2. **Lookup por teléfono:** `remoteJid` llega con prefijo `521`, `huespedes.telefono`
+   guarda 10 dígitos → query cambiado a match por **últimos 10 dígitos**
+   (`right(regexp_replace(...),10)`).
+3. **Storage 401:** la credencial `Tlalocan Supabase HTTP` tenía la llave de OTRO
+   proyecto (signature verification failed) → service_role correcta de `spnqatgiopfjczqwlzms`.
+4. **Acuse 400:** el input `remoteJid` del nodo Execute en el Concierge tenía un
+   espacio (`= {{…}}`) → corregido a `={{…}}`.
+
+**Escalamiento a finanzas — CONSTRUIDO y probado correcto, BLOQUEADO por la línea interna (2026-06-10):**
+- El nodo `Enviar a Finanzas` arma y envía bien: en la ejecución 7830 Evolution
+  aceptó el `sendMedia` (imagen + caption con folio/datos) y devolvió el mensaje
+  subido a WhatsApp. La cadena n8n está 100% correcta. Credencial `Evolution Interno`
+  creada (apikey instancia interna `E3BD73CD58CB-…`) y enlazada.
+- **Bloqueo:** la instancia **`Tlalocan Interno`** NO entrega mensajes salientes vía
+  Evolution (companion), aunque reporte `state: open`. `fetchInstances` muestra
+  `disconnectionReasonCode: 401` (**loggedOut**) → WhatsApp rechaza la sesión companion
+  de ese número. Síntoma: todo envío queda en `PENDING` y nunca llega; **el envío
+  manual desde el teléfono sí entrega** y **lo entrante también funciona**.
+- **Descartado** (todo probado 2026-06-10): formato de número (el check
+  `/chat/whatsappNumbers` confirma JIDs válidos con `1`), tipo de app (se migró a
+  **WA Business** en otro equipo y siguió fallando), el equipo/MIUI, estado de sesión
+  (restart/logout/re-vínculo/QR nuevo). Settings de la instancia normales.
+- **Conclusión:** WhatsApp está restringiendo ese **número nuevo** para uso vía
+  API/companion (típico anti-spam; ventas funciona porque solo **responde** a JIDs
+  entrantes ya validados, nunca inicia en frío).
+- **Recomendación / próximos pasos:**
+  1. Usar un **número con antigüedad/historial** para la línea interna (re-vincular la
+     instancia a ese número — apikey/credencial/config/webhook no cambian), **o**
+     pasar finanzas a **WhatsApp Cloud API** oficial.
+  2. Mientras tanto, **finanzas valida en la app** (`ValidarPagoForm` ya es idempotente
+     y notifica al huésped) — el sistema opera completo sin el canal WhatsApp de finanzas.
+- **Al reactivar:** revertir el query de `Recipientes Finanzas` a
+  `rol in ('admin','super_admin')` (hoy quedó en `super_admin` solo, para la prueba),
+  pulir el formato de fechas del caption (usar `.slice(0,10)`), y apagar el evento
+  de webhook `SEND_MESSAGE` de la instancia interna (solo debe quedar `MESSAGES_UPSERT`).
+- **Nota de datos:** se corrigió `usuarios.telefono` de Daniel a `5213335702682`
+  (tenía `+523335702682`, sin el `1`). Regla: teléfonos en `usuarios` = `521`+10 dígitos.
+
+**Git:** rama `fase-3-agente-ventas`. Docs actualizados (este §12). Sin push aún.
 
 ---
 
