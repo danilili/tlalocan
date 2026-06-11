@@ -196,3 +196,36 @@ Todos los Schedule usan cron UTC (Mazamitla es UTC-6 año redondo, sin DST): `0 
 ### Acciones pendientes en infra
 
 Don Dani ya reasignó las credenciales de los 4 workflows en la UI de n8n cloud (proyecto Emi - Reservalia). Smoke test del workflow B confirmó que está todo conectado.
+
+---
+
+## 8. Sesión 2026-06-11 — rescate del sprint + E + agente conversacional de estancia
+
+> Contexto: el cierre §7 (2026-05-13) vivía en la rama `claude/infallible-sammet-039c97` que nunca llegó a main — esta sesión la mergeó a `fase-4-agente-estancia`. Además, entre mayo y junio hubo trabajo fuera del repo: sync Airbnb iCal (migraciones versionadas retroactivamente como 0028–0035) y, en Fase 3 (junio), la app cambió su callback de validación al workflow `Tlalocan - Notificar Validacion Huesped` (`7SFqV2P5LdAEihAA`), dejando huérfano el `oVyq9UEjAzMLIX6j` que tenía el polish A.
+
+### Hecho en esta sesión
+
+| Qué | Detalle |
+|---|---|
+| Polish A re-aplicado | Al workflow que SÍ llama la app (`7SFqV2P5LdAEihAA`): teaser "te escribo 24h antes" + contacto Don Dani. Publicado y verificado (webhook prod responde; credencial Postgres intacta). |
+| Workflow viejo archivado | `Tlalocan - Notificar Validacion Pago` (`oVyq9UEjAzMLIX6j`) unpublish + archive. |
+| Entregable E publicado | `Tlalocan - Transiciones Estado Reserva` (`LjYb3trksGdtgFFs`): 21:00 UTC (15:00 MX) confirmada→en_curso; 18:00 UTC (12:00 MX) en_curso/confirmada→completada. Catch-up con `<=`. Ejecución de prueba success (0 filas, esperado). El UPDATE dispara `recalcular_stats_huesped`. |
+| Migraciones versionadas | 0028–0035 (Airbnb iCal + trigger operaciones, extraídas de `supabase_migrations.schema_migrations`) y 0036 (`recomendaciones_locales`, aplicada hoy con seed mínimo). |
+| Tool `datos_estancia` | `Tlalocan - Datos Estancia` (`A4UlqzMeSRyyLdzz`): por teléfono → reserva activa (confirmada/en_curso) con chalet, fechas, chapa, WiFi, Maps, instrucciones, saldo y datos bancarios. `ok:false` si no hay reserva activa (candado de datos sensibles). |
+| Tool `recomendaciones_locales` | `Tlalocan - Recomendaciones Locales` (`pCM0NBCpN7pL6i5K`): lee la tabla nueva, filtro opcional por categoría. |
+| Concierge extendido | Nodo `Lookup Estatus Huesped` inyectado en la cadena principal (estatus del contacto como CONTEXTO del prompt, por últimos 10 dígitos del JID); 2 tools nuevas conectadas; systemMessage reescrito a modo dual ventas+estancia con guardrails (chapa/WiFi solo con `datos_estancia ok:true`; emergencias → `telefono_super_admin`; no inventar lugares). Publicado. |
+| Smoke test sintético | POST al webhook con JID falso y apikey inválida: Lookup OK, contexto "prospecto" inyectado, Tlali respondió bien; envío falló 401 a propósito (no salió ningún mensaje). Ejecución 7973. |
+
+### Notas técnicas nuevas
+
+- El `update_workflow` del MCP oficial ahora aplica **operaciones quirúrgicas atómicas** (`setNodeParameter` con JSON Pointer, `addNode`, `addConnection`, `setNodeSettings`) — ya NO regenera el workflow desde SDK. La regla de Fase 3 de "editar producción solo a mano" quedó obsoleta; publicar tras una edición quirúrgica NO desasocia credenciales (verificado 2 veces).
+- `addNode` acepta `credentials` directo (id + name). Credencial `Tlalocan Postgres` = `kehI6QQcbJyqtctf`.
+- El MCP de n8n tuvo un periodo de 403 (`mcp_request_blocked`) a mitad de sesión; se recuperó solo. Reintentar antes de asumir.
+
+### Pendiente / próxima sesión
+
+1. **Prueba real de estancia por WhatsApp** (Don Dani desde su teléfono, que tiene reserva confirmada en De La Cima): "¿me pasas el código de la chapa?", "¿qué hacemos en Mazamitla?", y desde un número sin reserva pedir la chapa (debe negarse).
+2. **Contenido de recomendaciones**: Don Dani cura la tabla `recomendaciones_locales` (restaurantes/cafés específicos; seed actual es genérico).
+3. Procesamiento automático del comprobante del saldo (schema `comprobante_saldo_url` etc.) — sigue fuera de alcance.
+4. Link directo de reseña Airbnb (`config.link_airbnb_review`) para el workflow D.
+5. Línea interna WhatsApp sigue bloqueada (FASE-3 §12) — escalamiento a finanzas se queda en la app.
