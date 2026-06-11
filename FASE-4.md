@@ -2,6 +2,7 @@
 
 > Kickoff doc. Lee `MEMORY.md`, `PLAN.md` §4.4, `FASE-3.md` antes que esto si es la primera vez.
 > Fase 3 (Agente 1) cerrada y mergeada al 2026-05-12 (commit `eb8f3db`).
+> **Fase 4 (Agente 2 — sprint MVP) cerrada el 2026-05-13.** Ver §7 para resumen de cierre.
 
 ---
 
@@ -147,3 +148,51 @@ De `reservas`:
 6. Después **B (Recordatorio Llegada)** que tiene más campos.
 7. Cerrar con **C (Recordatorio Saldo)** que tiene la lógica de escalar a humano.
 8. Commit consolidado al final con migración nueva si hace falta (e.g. agregar `ubicacion_maps_global`).
+
+---
+
+## 7. Cierre del sprint (2026-05-13)
+
+Sprint ejecutado siguiendo el orden sugerido en §6 (A → D → B → C). Smoke test Nivel 2 corrido contra workflow B con reserva fake: WhatsApp llegó OK, credenciales y query del Lookup validadas.
+
+### Entregables publicados
+
+| # | Entregable | Workflow ID | Trigger | Estado |
+|---|---|---|---|---|
+| A | Polish Mensaje 1 (confirmación) | `oVyq9UEjAzMLIX6j` | Webhook `notificar-validacion-pago` | Activo |
+| B | Recordatorio Llegada | `V14hvpnwJAMpAcPm` | Schedule diario 10:00 MX | Activo |
+| C | Recordatorio Saldo (+ escalación 24h) | `2e1YxT0uBw8IhxA6` | Schedule diario 10:00 MX | Activo |
+| D | Recordatorio Salida | `jp82fnqgMv0gb6oS` | Schedule diario 11:00 MX | Activo |
+
+Todos los Schedule usan cron UTC (Mazamitla es UTC-6 año redondo, sin DST): `0 0 16 * * *` = 10:00 MX, `0 0 17 * * *` = 11:00 MX.
+
+### Migraciones nuevas
+
+- `0026_config_ubicacion_maps_global.sql` — agrega `config.ubicacion_maps_global` con el link del fraccionamiento Paso del Ciervo (`https://maps.app.goo.gl/JAqWXGMr3TMXvW6P6`). Los 4 chalets comparten estacionamiento.
+- `0027_notificaciones_saldo_no_pagado.sql` — agrega `saldo_no_pagado` al check constraint de `notificaciones.tipo`. Usado por el workflow C cuando una reserva está a 24h del check-in sin el saldo pagado.
+
+### Decisiones de diseño tomadas durante el sprint
+
+- **Texto de indicaciones de llegada:** literal en el Code de cada workflow ("Entra al fraccionamiento Paso del Ciervo, identifícate en la caseta…"). No hay `config.instrucciones_llegada_global` aún — el workflow B hace `COALESCE(chalets.instrucciones_llegada, config.instrucciones_llegada_global, hardcoded_default)` y por ahora siempre cae al default. Si en el futuro hay variantes, basta agregar el key a `config`.
+- **Reseñas en Airbnb sin URL específica:** el workflow D solo menciona "una reseña en Airbnb" sin link. Si Don Dani pasa la URL después, agregar `config.link_airbnb_review` y leerlo en el Code.
+- **Estado al armar D:** el filtro de `Lookup Salidas Hoy` acepta `estado IN ('confirmada', 'en_curso')` — futuro-proof por si más adelante se implementa la transición automática `confirmada → en_curso` el día del check-in (entregable E opcional, no implementado).
+- **Mensaje del workflow C:** dos tonos. Cordial a 48h (datos bancarios neutros), más urgente a 24h (incluye teléfono Don Dani al final, y crea notificación interna `saldo_no_pagado` para admins).
+- **Beneficiario del pago:** `Giovanna Jacqueline Alexa Anaya Rodriguez` (nombre completo). Ya estaba actualizado en `config.beneficiario_pago` desde antes del sprint.
+
+### Bugs adicionales encontrados / aprendidos
+
+- **`reservas.origen` check constraint:** valores válidos son `directa`, `airbnb`, `booking`, `referido`, `agente_whatsapp`, `app_manual` — NO `manual`. Guardado en memoria como `reference_reservas_origen_values.md`.
+- **MCP `create_workflow_from_code` devolvió 500 falso positivo 3 de 3 veces** en este sprint (workflows B, C, D). El workflow siempre se creó OK. Confirmado el patrón documentado en `MEMORY.md`: verificar con `search_workflows` antes de reintentar.
+- **MCP `update_workflow` + `publish_workflow` desasocia credenciales** consistentemente. Don Dani reasignó manualmente en la UI los 4 workflows. Documentado desde Fase 3, se reconfirma.
+- **`workflow.settings.timezone` no es exponible desde el SDK** (al menos en los patterns que probamos). Trabajamos con cron UTC explícito. Si en el futuro hace falta TZ-aware schedules, hay que setearlo manualmente en la UI o investigar el SDK más a fondo.
+
+### Out of scope, queda para próximo sprint
+
+- Agente conversacional durante la estancia (responder preguntas WiFi/chapa/horarios/recomendaciones locales de Mazamitla). Requiere construir base de "lugares recomendados" — tabla `recomendaciones_locales` o prompt extenso. Decisión cuando arranque.
+- Procesamiento automático del comprobante del saldo (extender schema `reservas` con `comprobante_saldo_url`, `saldo_subido_en`, `saldo_validado_*`).
+- Transición automática de estado `confirmada → en_curso` al check-in y `en_curso → completada` al check-out (entregable E opcional listado en §2).
+- Link directo a Airbnb en el mensaje de reseña del workflow D.
+
+### Acciones pendientes en infra
+
+Don Dani ya reasignó las credenciales de los 4 workflows en la UI de n8n cloud (proyecto Emi - Reservalia). Smoke test del workflow B confirmó que está todo conectado.
