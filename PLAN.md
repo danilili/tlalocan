@@ -585,6 +585,8 @@ El tab Resumen reemplaza arrays hardcoded por queries a Supabase:
 
 ### Fase 3 — Agente 1: Ventas (M·02)
 
+> **Estado:** funcionalmente cerrada al 2026-05-12. Detalle de workflows, IDs, credenciales y trabajo abierto en [`FASE-3.md`](FASE-3.md). Lo único explícitamente out of scope es el procesamiento automático del comprobante (el subworkflow `Procesar Comprobante Pago` está listo en n8n pero no cableado como tool del Concierge — el huésped manda comprobante y un humano lo procesa manual desde la app).
+
 1. Inspeccionar workflow `Tlalocan Concierge` y replicar el patrón de Redis buffer de memoria como base para los demás agentes.
 2. **Reemplazar `cotizar_estadia`**: ahora llama a `calcular_estadia()` en Supabase. Devuelve total con impuestos desglosados. El agente debe presentar al huésped: noches, subtotal, IVA, impuesto hospedaje, **total**.
 3. **Reemplazar `enviar_fotos_chalets`**: query a `chalets.fotos_url`.
@@ -602,6 +604,8 @@ El tab Resumen reemplaza arrays hardcoded por queries a Supabase:
 9. **Decisión: el agente NO crea reservas en estado `confirmada` directamente.** Siempre pasa por validación humana.
 
 ### Fase 4 — Agente 2: Bienvenida y estancia (M·03)
+
+> **Estado:** kickoff. Alcance MVP del sprint actual, decisiones cerradas, bugs aprendidos de Fase 3, y plan de ataque en [`FASE-4.md`](FASE-4.md). El agente conversacional durante la estancia (punto 5) y el procesamiento automático del comprobante del saldo quedan fuera del alcance del sprint actual.
 
 1. Webhook que recibe `reserva_id` cuando se confirma.
 2. **Mensaje 1 (inmediato):** confirmación con datos del chalet, fechas, monto pagado, contacto Don Dani. Cordial pero conciso.
