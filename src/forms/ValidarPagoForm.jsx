@@ -53,23 +53,31 @@ export default function ValidarPagoForm({ open, reserva, onClose, onUpdated }) {
   const onValidar = async () => {
     setSubmitting(true);
     setSubmitError(null);
-    const anticipo = Math.round(Number(reserva.monto_total) * 0.5);
-    const { error } = await supabase
+    // Idempotente: solo actúa si sigue en pendiente_pago. Si WhatsApp (u otro
+    // admin) ya la validó/canceló, el filtro no matchea y "primero gana".
+    const { data, error } = await supabase
       .from('reservas')
       .update({
         estado: 'confirmada',
         validado_por: user?.id ?? null,
         validado_en: new Date().toISOString(),
         motivo_rechazo: null,
-        monto_pagado: anticipo,
       })
-      .eq('id', reserva.id);
+      .eq('id', reserva.id)
+      .eq('estado', 'pendiente_pago')
+      .select();
     setSubmitting(false);
     if (error) {
       setSubmitError(error.message);
       return;
     }
-    notifyHuesped({ reservaId: reserva.id, validada: true });
+    if (!data || data.length === 0) {
+      setSubmitError('Esta reserva ya fue validada o cancelada por otro canal.');
+      onUpdated?.();
+      return;
+    }
+    // Avisar al huésped por WhatsApp (best-effort, no bloquea).
+    notificarHuesped({ reserva_id: reserva.id, validada: true });
     onUpdated?.();
     onClose?.();
   };
@@ -81,22 +89,29 @@ export default function ValidarPagoForm({ open, reserva, onClose, onUpdated }) {
     }
     setSubmitting(true);
     setSubmitError(null);
-    const motivoTrim = motivo.trim();
-    const { error } = await supabase
+    const motivoTexto = motivo.trim();
+    const { data, error } = await supabase
       .from('reservas')
       .update({
         estado: 'cancelada',
-        motivo_rechazo: motivoTrim,
+        motivo_rechazo: motivoTexto,
         validado_por: user?.id ?? null,
         validado_en: new Date().toISOString(),
       })
-      .eq('id', reserva.id);
+      .eq('id', reserva.id)
+      .eq('estado', 'pendiente_pago')
+      .select();
     setSubmitting(false);
     if (error) {
       setSubmitError(error.message);
       return;
     }
-    notifyHuesped({ reservaId: reserva.id, validada: false, motivo: motivoTrim });
+    if (!data || data.length === 0) {
+      setSubmitError('Esta reserva ya fue validada o cancelada por otro canal.');
+      onUpdated?.();
+      return;
+    }
+    notificarHuesped({ reserva_id: reserva.id, validada: false, motivo: motivoTexto });
     onUpdated?.();
     onClose?.();
   };
@@ -255,18 +270,18 @@ function Row({ label, value, highlight }) {
   );
 }
 
-function notifyHuesped({ reservaId, validada, motivo }) {
+// Dispara el callback de validación a n8n para que avise al huésped por
+// WhatsApp. Best-effort: si la URL no está configurada o el fetch falla, no
+// debe romper la validación (la reserva ya quedó actualizada en Supabase).
+function notificarHuesped(payload) {
   const url = import.meta.env.VITE_N8N_WEBHOOK_VALIDACION_PAGO;
-  if (!url) {
-    console.warn('VITE_N8N_WEBHOOK_VALIDACION_PAGO no configurado; no se notificó al huésped.');
-    return;
-  }
+  if (!url) return;
   fetch(url, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ reserva_id: reservaId, validada, motivo: motivo ?? null }),
-  }).catch((err) => {
-    console.error('Falló notificación al huésped:', err);
+    body: JSON.stringify(payload),
+  }).catch(() => {
+    /* best-effort: el huésped puede no recibir el aviso, pero la validación sí cuenta */
   });
 }
 
