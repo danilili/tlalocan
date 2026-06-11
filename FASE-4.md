@@ -222,9 +222,16 @@ Don Dani ya reasignó las credenciales de los 4 workflows en la UI de n8n cloud 
 - `addNode` acepta `credentials` directo (id + name). Credencial `Tlalocan Postgres` = `kehI6QQcbJyqtctf`.
 - El MCP de n8n tuvo un periodo de 403 (`mcp_request_blocked`) a mitad de sesión; se recuperó solo. Reintentar antes de asumir.
 
+### Bug encontrado y corregido en la primera prueba real (2026-06-11)
+
+Don Dani pidió la chapa y Tlali respondió "Hola Lucas… un asesor te contactará". Causa raíz (ejecución 7976): dos huéspedes en DB con los mismos últimos 10 dígitos — "Lucas" (`5213335702682`, dato de prueba de mayo, 0 reservas) y "Daniel" (`3335702682`, reserva activa). El `Lookup Estatus Huesped` hacía `limit 1` sin ordenar y ganó Lucas → contexto "sin reserva activa" → guardrail negó la chapa (comportamiento correcto con contexto incorrecto). Fix triple:
+1. Query del lookup ahora ordena con `(r.estado is null)` primero — el huésped CON reserva activa gana siempre.
+2. Prompt endurecido: `datos_estancia` es la fuente de verdad; NUNCA negar chapa/WiFi/llegada sin haberla llamado en ese turno (el contexto puede venir incompleto).
+3. Huésped fantasma "Lucas" eliminado de la DB (0 reservas).
+
 ### Pendiente / próxima sesión
 
-1. **Prueba real de estancia por WhatsApp** (Don Dani desde su teléfono, que tiene reserva confirmada en De La Cima): "¿me pasas el código de la chapa?", "¿qué hacemos en Mazamitla?", y desde un número sin reserva pedir la chapa (debe negarse).
+1. **Re-probar estancia por WhatsApp** (Don Dani): "¿me pasas el código de la chapa?" → debe dar 2998 + WiFi; "¿qué hacemos en Mazamitla?"; y desde un número sin reserva pedir la chapa (debe negarse).
 2. **Contenido de recomendaciones**: Don Dani cura la tabla `recomendaciones_locales` (restaurantes/cafés específicos; seed actual es genérico).
 3. Procesamiento automático del comprobante del saldo (schema `comprobante_saldo_url` etc.) — sigue fuera de alcance.
 4. Link directo de reseña Airbnb (`config.link_airbnb_review`) para el workflow D.
