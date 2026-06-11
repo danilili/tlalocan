@@ -229,9 +229,18 @@ Don Dani pidió la chapa y Tlali respondió "Hola Lucas… un asesor te contacta
 2. Prompt endurecido: `datos_estancia` es la fuente de verdad; NUNCA negar chapa/WiFi/llegada sin haberla llamado en ese turno (el contexto puede venir incompleto).
 3. Huésped fantasma "Lucas" eliminado de la DB (0 reservas).
 
+### Segunda ronda de prueba real (2026-06-11, más tarde)
+
+"Cómo llegar" funcionó (contexto ya decía Daniel/confirmada), pero la chapa volvió a negarse. Causa (ejecución 7982): contexto CORRECTO pero `tool_calls: 0` — la **memoria Redis** de la conversación ya traía dos negativas previas y gpt-4o-mini imitó su propio precedente en vez de llamar `datos_estancia`. Fix:
+1. `sessionKey` de Memoria Redis rotado a `remoteJid + ':v2'` — resetea la memoria envenenada de todas las conversaciones de prueba.
+2. Prompt: regla anti-precedente ("haberlo negado antes NO es razón para negar ahora; verifica con la tool en cada pregunta").
+3. Negativa sin promesa falsa: si `datos_estancia ok:false`, explicar el motivo (sin reserva activa) y NO prometer que un asesor contactará (nada se escala automáticamente ahí). Feedback directo de Don Dani.
+4. Links: prohibido formato markdown `[texto](url)` — WhatsApp no lo renderiza (salió "Invalid Dynamic Link" en la prueba). URL sola en su propia línea.
+
 ### Pendiente / próxima sesión
 
-1. **Re-probar estancia por WhatsApp** (Don Dani): "¿me pasas el código de la chapa?" → debe dar 2998 + WiFi; "¿qué hacemos en Mazamitla?"; y desde un número sin reserva pedir la chapa (debe negarse).
+0. **Croquis de llegada**: Don Dani quiere agregar un croquis (imagen) de la entrada del fraccionamiento a los chalets. Plan: subir imagen a Supabase Storage → `config.croquis_llegada_url` → enviarla con sendMedia en el workflow B (Recordatorio Llegada) y como tool/paso cuando pregunten cómo llegar. **Falta que Don Dani pase la imagen.**
+1. **Re-probar estancia por WhatsApp** (Don Dani): "¿me pasas el código de la chapa?" → debe dar 2998 + WiFi; "¿qué hacemos en Mazamitla?"; y desde un número sin reserva pedir la chapa (debe negarse explicando motivo, sin prometer asesor).
 2. **Contenido de recomendaciones**: Don Dani cura la tabla `recomendaciones_locales` (restaurantes/cafés específicos; seed actual es genérico).
 3. Procesamiento automático del comprobante del saldo (schema `comprobante_saldo_url` etc.) — sigue fuera de alcance.
 4. Link directo de reseña Airbnb (`config.link_airbnb_review`) para el workflow D.
