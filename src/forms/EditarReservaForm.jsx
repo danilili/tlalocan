@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '../lib/supabase';
 import { T } from '../lib/design-tokens';
-import { formatMoney } from '../lib/format';
+import { formatMoney, normalizePhone } from '../lib/format';
 import Modal from '../components/Modal';
 import { useRol } from '../hooks/useRol';
 
@@ -24,6 +24,15 @@ export default function EditarReservaForm({ open, reserva, onClose, onUpdated })
   const [notas, setNotas] = useState('');
   const [estado, setEstado] = useState('pendiente_pago');
 
+  // Datos del huésped (editables aquí mismo). Para Airbnb arrancan en blanco
+  // porque el placeholder del import iCal no trae datos reales.
+  const [nombre, setNombre] = useState('');
+  const [apellidos, setApellidos] = useState('');
+  const [telefono, setTelefono] = useState('');
+  const [email, setEmail] = useState('');
+  // Monto total cobrado. En Airbnb se captura a mano (el iCal no trae el payout).
+  const [monto, setMonto] = useState('');
+
   const [calculo, setCalculo] = useState(null);
   const [calculoError, setCalculoError] = useState(null);
   const [solapeBlocking, setSolapeBlocking] = useState(false);
@@ -38,6 +47,13 @@ export default function EditarReservaForm({ open, reserva, onClose, onUpdated })
     setNumHuespedes(reserva.num_huespedes ?? 2);
     setNotas(reserva.notas ?? '');
     setEstado(reserva.estado ?? 'pendiente_pago');
+    const placeholder =
+      reserva.origen === 'airbnb' && (reserva.huesped?.telefono ?? '').startsWith('+airbnb-');
+    setNombre(placeholder ? '' : (reserva.huesped?.nombre ?? ''));
+    setApellidos(placeholder ? '' : (reserva.huesped?.apellidos ?? ''));
+    setTelefono(placeholder ? '' : (reserva.huesped?.telefono ?? ''));
+    setEmail(reserva.huesped?.email ?? '');
+    setMonto(reserva.monto_total != null ? String(reserva.monto_total) : '');
     setCalculo(null);
     setCalculoError(null);
     setSolapeBlocking(false);
@@ -76,6 +92,8 @@ export default function EditarReservaForm({ open, reserva, onClose, onUpdated })
         setCalculo(null);
       } else {
         setCalculo(data);
+        // Autollenar el monto sugerido (precio cerrado) al cambiar fechas; editable.
+        if (data) setMonto(String(data.total_redondeado ?? data.total));
       }
     })();
     return () => {
@@ -116,6 +134,9 @@ export default function EditarReservaForm({ open, reserva, onClose, onUpdated })
     [reserva.huesped?.nombre, reserva.huesped?.apellidos].filter(Boolean).join(' ').trim() ||
     'Sin nombre';
 
+  const isPlaceholder =
+    reserva.origen === 'airbnb' && (reserva.huesped?.telefono ?? '').startsWith('+airbnb-');
+
   const valid =
     !!fechaEntrada &&
     !!fechaSalida &&
@@ -146,6 +167,34 @@ export default function EditarReservaForm({ open, reserva, onClose, onUpdated })
     setSubmitting(true);
     setSubmitError(null);
     try {
+      // 1) Guardar/fusionar contacto del huésped si se capturó o cambió.
+      //    Reutiliza completar_huesped_airbnb: actualiza en sitio o funde con un
+      //    huésped existente (match por últimos 10 dígitos del teléfono).
+      const telDigits = normalizePhone(telefono);
+      const contactoCambiado =
+        isPlaceholder ||
+        nombre.trim() !== (reserva.huesped?.nombre ?? '') ||
+        apellidos.trim() !== (reserva.huesped?.apellidos ?? '') ||
+        telDigits !== normalizePhone(reserva.huesped?.telefono ?? '') ||
+        email.trim() !== (reserva.huesped?.email ?? '');
+      const quiereContacto = !!nombre.trim() || telDigits.length > 0;
+      if (quiereContacto && contactoCambiado) {
+        if (!nombre.trim() || telDigits.length < 10) {
+          setSubmitError('Para guardar el huésped: captura nombre y teléfono de 10 dígitos.');
+          setSubmitting(false);
+          return;
+        }
+        const { error: rpcErr } = await supabase.rpc('completar_huesped_airbnb', {
+          p_reserva_id: reserva.id,
+          p_nombre: nombre.trim(),
+          p_apellidos: apellidos.trim() || null,
+          p_telefono: telefono.trim(),
+          p_email: email.trim() || null,
+        });
+        if (rpcErr) throw rpcErr;
+      }
+
+      // 2) Actualizar la reserva (fechas, notas, estado, monto).
       const update = {
         fecha_entrada: fechaEntrada,
         fecha_salida: fechaSalida,
@@ -157,7 +206,12 @@ export default function EditarReservaForm({ open, reserva, onClose, onUpdated })
         update.subtotal_neto = calculo.subtotal_neto;
         update.iva = calculo.iva;
         update.impuesto_hospedaje = calculo.impuesto_hospedaje;
-        update.monto_total = calculo.total;
+      }
+      const montoNum = monto === '' ? null : Number(monto);
+      if (montoNum != null && !Number.isNaN(montoNum)) {
+        update.monto_total = montoNum;
+        // Airbnb ya cobró en su plataforma: la reserva queda saldada.
+        if (reserva.origen === 'airbnb') update.monto_pagado = montoNum;
       }
       const { error } = await supabase.from('reservas').update(update).eq('id', reserva.id);
       if (error) throw error;
@@ -176,6 +230,50 @@ export default function EditarReservaForm({ open, reserva, onClose, onUpdated })
         <div style={summaryStyle}>
           <Row label="Huésped" value={fullName} />
           <Row label="Chalet" value={reserva.chalet?.nombre ?? '—'} />
+        </div>
+
+        {isPlaceholder && (
+          <p style={{ color: '#FF5A5F', fontSize: 12, margin: '0 0 12px' }}>
+            Reserva de Airbnb sin contacto. Captura los datos reales del huésped y el monto cobrado.
+            Si ese teléfono ya existe en otra ficha, se fusiona automáticamente.
+          </p>
+        )}
+
+        <div style={rowStyle}>
+          <div style={{ ...fieldStyle, flex: 1, minWidth: 180 }}>
+            <label style={labelStyle}>Nombre</label>
+            <input style={inputStyle} value={nombre} onChange={(e) => setNombre(e.target.value)} />
+          </div>
+          <div style={{ ...fieldStyle, flex: 1, minWidth: 180 }}>
+            <label style={labelStyle}>Apellidos</label>
+            <input
+              style={inputStyle}
+              value={apellidos}
+              onChange={(e) => setApellidos(e.target.value)}
+            />
+          </div>
+        </div>
+
+        <div style={rowStyle}>
+          <div style={{ ...fieldStyle, flex: 1, minWidth: 180 }}>
+            <label style={labelStyle}>Teléfono WhatsApp (con lada)</label>
+            <input
+              style={inputStyle}
+              type="tel"
+              placeholder="5213335702682"
+              value={telefono}
+              onChange={(e) => setTelefono(e.target.value)}
+            />
+          </div>
+          <div style={{ ...fieldStyle, flex: 1, minWidth: 180 }}>
+            <label style={labelStyle}>Email (opcional)</label>
+            <input
+              style={inputStyle}
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+            />
+          </div>
         </div>
 
         <div style={rowStyle}>
@@ -210,6 +308,21 @@ export default function EditarReservaForm({ open, reserva, onClose, onUpdated })
               onChange={(e) => setNumHuespedes(e.target.value)}
             />
           </div>
+        </div>
+
+        <div style={fieldStyle}>
+          <label style={labelStyle}>
+            Monto total (MXN){reserva.origen === 'airbnb' ? ' — se marcará como pagado' : ''}
+          </label>
+          <input
+            style={inputStyle}
+            type="number"
+            min={0}
+            step="0.01"
+            placeholder="0.00"
+            value={monto}
+            onChange={(e) => setMonto(e.target.value)}
+          />
         </div>
 
         <div style={fieldStyle}>
