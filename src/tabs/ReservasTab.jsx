@@ -106,6 +106,21 @@ export default function ReservasTab() {
                   <div style={{ fontSize: 12, color: T.muted, minWidth: 130 }}>
                     {formatDateShort(r.fecha_entrada)} → {formatDateShort(r.fecha_salida)}
                   </div>
+                  {r.origen === 'airbnb' && (
+                    <div style={{ minWidth: 110 }}>
+                      <div
+                        style={{
+                          fontSize: 12,
+                          fontWeight: 600,
+                          fontFamily: 'monospace',
+                          color: r.codigo_airbnb ? T.text : T.muted,
+                        }}
+                      >
+                        {r.codigo_airbnb || 'Sin código'}
+                      </div>
+                      <div style={{ fontSize: 11, color: T.muted, marginTop: 2 }}>Cód. Airbnb</div>
+                    </div>
+                  )}
                   <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
                     {needsValidation && <PagoPendienteBadge />}
                     <StatusBadge status={r.estado} />

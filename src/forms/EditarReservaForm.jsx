@@ -32,6 +32,8 @@ export default function EditarReservaForm({ open, reserva, onClose, onUpdated })
   const [email, setEmail] = useState('');
   // Monto total cobrado. En Airbnb se captura a mano (el iCal no trae el payout).
   const [monto, setMonto] = useState('');
+  // Código de confirmación de Airbnb (HM…) para conciliación; manual.
+  const [codigoAirbnb, setCodigoAirbnb] = useState('');
 
   const [calculo, setCalculo] = useState(null);
   const [calculoError, setCalculoError] = useState(null);
@@ -54,6 +56,7 @@ export default function EditarReservaForm({ open, reserva, onClose, onUpdated })
     setTelefono(placeholder ? '' : (reserva.huesped?.telefono ?? ''));
     setEmail(reserva.huesped?.email ?? '');
     setMonto(reserva.monto_total != null ? String(reserva.monto_total) : '');
+    setCodigoAirbnb(reserva.codigo_airbnb ?? '');
     setCalculo(null);
     setCalculoError(null);
     setSolapeBlocking(false);
@@ -213,6 +216,9 @@ export default function EditarReservaForm({ open, reserva, onClose, onUpdated })
         // Airbnb ya cobró en su plataforma: la reserva queda saldada.
         if (reserva.origen === 'airbnb') update.monto_pagado = montoNum;
       }
+      if (reserva.origen === 'airbnb') {
+        update.codigo_airbnb = codigoAirbnb.trim() || null;
+      }
       const { error } = await supabase.from('reservas').update(update).eq('id', reserva.id);
       if (error) throw error;
       onUpdated?.();
@@ -324,6 +330,18 @@ export default function EditarReservaForm({ open, reserva, onClose, onUpdated })
             onChange={(e) => setMonto(e.target.value)}
           />
         </div>
+
+        {reserva.origen === 'airbnb' && (
+          <div style={fieldStyle}>
+            <label style={labelStyle}>Código Airbnb (HM…) — para conciliación</label>
+            <input
+              style={inputStyle}
+              placeholder="HM1A2B3C4D"
+              value={codigoAirbnb}
+              onChange={(e) => setCodigoAirbnb(e.target.value)}
+            />
+          </div>
+        )}
 
         <div style={fieldStyle}>
           <label style={labelStyle}>Notas</label>
