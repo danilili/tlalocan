@@ -119,7 +119,7 @@ export default function EditarChaletForm({ open, chalet, onClose, onSaved }) {
   };
 
   return (
-    <Modal open={open} onClose={onClose} title={isNew ? 'Nuevo chalet' : 'Editar chalet'} maxWidth={580}>
+    <Modal open={open} onClose={onClose} title={isNew ? 'Nuevo chalet' : 'Editar chalet'} maxWidth={580} dismissOnBackdrop={false} dismissOnEscape={false}>
       <form onSubmit={handleSubmit}>
         <div style={rowStyle}>
           <div style={{ ...fieldStyle, flex: 2, minWidth: 200 }}>

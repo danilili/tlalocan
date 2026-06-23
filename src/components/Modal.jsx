@@ -1,11 +1,21 @@
 import { useEffect } from 'react';
 import { T } from '../lib/design-tokens';
 
-export default function Modal({ open, onClose, title, children, maxWidth = 540 }) {
+export default function Modal({
+  open,
+  onClose,
+  title,
+  children,
+  maxWidth = 540,
+  // Para formularios de captura: false evita cerrar por clic en el fondo o por
+  // Escape (evita perder datos por un clic/tecla accidental). Cerrar con ✕/Cancelar.
+  dismissOnBackdrop = true,
+  dismissOnEscape = true,
+}) {
   useEffect(() => {
     if (!open) return;
     const onKey = (e) => {
-      if (e.key === 'Escape') onClose?.();
+      if (e.key === 'Escape' && dismissOnEscape) onClose?.();
     };
     window.addEventListener('keydown', onKey);
     const prevOverflow = document.body.style.overflow;
@@ -14,13 +24,13 @@ export default function Modal({ open, onClose, title, children, maxWidth = 540 }
       window.removeEventListener('keydown', onKey);
       document.body.style.overflow = prevOverflow;
     };
-  }, [open, onClose]);
+  }, [open, onClose, dismissOnEscape]);
 
   if (!open) return null;
 
   return (
     <div
-      onClick={onClose}
+      onClick={dismissOnBackdrop ? onClose : undefined}
       style={{
         position: 'fixed',
         inset: 0,

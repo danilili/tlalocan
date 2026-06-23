@@ -192,7 +192,7 @@ export default function NuevaReservaForm({ open, onClose, onCreated }) {
   };
 
   return (
-    <Modal open={open} onClose={onClose} title="Nueva reserva" maxWidth={580}>
+    <Modal open={open} onClose={onClose} title="Nueva reserva" maxWidth={580} dismissOnBackdrop={false} dismissOnEscape={false}>
       <form onSubmit={handleSubmit}>
         {/* Huesped */}
         <div style={fieldStyle}>
