@@ -231,7 +231,7 @@ export default function EditarReservaForm({ open, reserva, onClose, onUpdated })
   };
 
   return (
-    <Modal open={open} onClose={onClose} title="Editar reserva" maxWidth={560}>
+    <Modal open={open} onClose={onClose} title="Editar reserva" maxWidth={560} dismissOnBackdrop={false} dismissOnEscape={false}>
       <form onSubmit={handleSubmit}>
         <div style={summaryStyle}>
           <Row label="Huésped" value={fullName} />

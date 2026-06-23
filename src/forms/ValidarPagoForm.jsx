@@ -117,7 +117,7 @@ export default function ValidarPagoForm({ open, reserva, onClose, onUpdated }) {
   };
 
   return (
-    <Modal open={open} onClose={onClose} title="Validar pago" maxWidth={520}>
+    <Modal open={open} onClose={onClose} title="Validar pago" maxWidth={520} dismissOnBackdrop={false} dismissOnEscape={false}>
       <div style={summaryStyle}>
         <Row label="Huésped" value={fullName} />
         <Row label="Chalet" value={reserva.chalet?.nombre ?? '—'} />
