@@ -6,7 +6,6 @@ import FadeIn from '../components/FadeIn';
 import SectionTitle from '../components/SectionTitle';
 import { useConfig } from '../hooks/useConfig';
 import { useRol } from '../hooks/useRol';
-import { formatMoney, formatDate } from '../lib/format';
 
 const ROL_LABEL = {
   super_admin: 'Super Admin',
@@ -17,22 +16,18 @@ const ROL_LABEL = {
 export default function ConfigTab() {
   const { isSuperAdmin } = useRol();
   const { data: config, loading: configLoading, refetch: refetchConfig } = useConfig();
-  const [tarifas, setTarifas] = useState([]);
-  const [tarifasLoading, setTarifasLoading] = useState(true);
   const [usuarios, setUsuarios] = useState([]);
   const [usuariosLoading, setUsuariosLoading] = useState(true);
 
   useEffect(() => {
     let cancelled = false;
     (async () => {
-      const [tarifasRes, usuariosRes] = await Promise.all([
-        supabase.from('tarifas').select('*').order('vigente_desde', { ascending: false }),
-        supabase.from('usuarios').select('id, nombre, rol, telefono, activo').order('rol'),
-      ]);
+      const { data } = await supabase
+        .from('usuarios')
+        .select('id, nombre, rol, telefono, activo')
+        .order('rol');
       if (cancelled) return;
-      setTarifas(tarifasRes.data ?? []);
-      setTarifasLoading(false);
-      setUsuarios(usuariosRes.data ?? []);
+      setUsuarios(data ?? []);
       setUsuariosLoading(false);
     })();
     return () => {
@@ -58,46 +53,6 @@ export default function ConfigTab() {
             ))}
           </div>
         </Card>
-      </FadeIn>
-
-      <FadeIn delay={150}>
-        <SectionTitle>Tarifas vigentes</SectionTitle>
-        {tarifasLoading && <div style={{ color: T.muted, fontSize: 12 }}>Cargando…</div>}
-        {!tarifasLoading && tarifas.length === 0 && (
-          <Card>
-            <div style={{ color: T.muted, fontSize: 13, textAlign: 'center' }}>
-              No hay tarifas registradas.
-            </div>
-          </Card>
-        )}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-          {tarifas.map((t) => (
-            <Card key={t.id} style={{ padding: '14px 18px' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>
-                <div>
-                  <div style={{ fontSize: 14, fontWeight: 500 }}>{t.nombre}</div>
-                  <div style={{ fontSize: 11, color: T.muted, marginTop: 2 }}>
-                    Vigente desde {formatDate(t.vigente_desde)}
-                    {t.vigente_hasta ? ` hasta ${formatDate(t.vigente_hasta)}` : ' (sin fin)'}
-                    {' · '}
-                    {t.activa ? 'Activa' : 'Inactiva'}
-                  </div>
-                </div>
-                <div style={{ fontSize: 11, color: T.muted, textAlign: 'right' }}>
-                  Lun–Jue: <span style={{ color: T.text }}>{formatMoney(t.precio_lun_jue)}</span>{' · '}
-                  Vie–Sáb: <span style={{ color: T.text }}>{formatMoney(t.precio_vie_sab)}</span>{' · '}
-                  Dom: <span style={{ color: T.text }}>{formatMoney(t.precio_domingo)}</span>
-                  <div style={{ marginTop: 4 }}>
-                    IVA {t.iva_pct}% · Hospedaje {t.impuesto_hospedaje_pct}%
-                  </div>
-                </div>
-              </div>
-            </Card>
-          ))}
-        </div>
-        <div style={{ fontSize: 11, color: T.muted, marginTop: 10, fontStyle: 'italic' }}>
-          La edición de tarifas se hace por ahora en Supabase Studio. UI de edición queda como nice-to-have de una fase posterior.
-        </div>
       </FadeIn>
 
       <FadeIn delay={300}>

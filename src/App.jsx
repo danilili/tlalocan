@@ -11,6 +11,7 @@ import ReservasTab from './tabs/ReservasTab';
 import HuespedesTab from './tabs/HuespedesTab';
 import StaffTab from './tabs/StaffTab';
 import ChaletsTab from './tabs/ChaletsTab';
+import PreciosTab from './tabs/PreciosTab';
 import ConfigTab from './tabs/ConfigTab';
 import RequireRole from './components/RequireRole';
 
@@ -96,6 +97,14 @@ export default function App() {
             element={
               <RequireRole roles={ADMIN_ROLES} fallback={<Navigate to="/" replace />}>
                 <ChaletsTab />
+              </RequireRole>
+            }
+          />
+          <Route
+            path="precios"
+            element={
+              <RequireRole roles={SUPER_ONLY} fallback={<Navigate to="/" replace />}>
+                <PreciosTab />
               </RequireRole>
             }
           />
