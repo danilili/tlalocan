@@ -23,6 +23,7 @@ const TABS = [
   { to: '/huespedes', label: 'Huéspedes', roles: ALL_ROLES },
   { to: '/staff', label: 'Staff', roles: ADMIN_ROLES },
   { to: '/chalets', label: 'Chalets', roles: ADMIN_ROLES },
+  { to: '/precios', label: 'Precios', roles: SUPER_ONLY },
   { to: '/config', label: 'Config', roles: SUPER_ONLY },
 ];
 
