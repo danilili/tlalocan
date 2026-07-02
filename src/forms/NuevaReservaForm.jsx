@@ -3,9 +3,12 @@ import { supabase } from '../lib/supabase';
 import { T } from '../lib/design-tokens';
 import { formatMoney, normalizePhone } from '../lib/format';
 import Modal from '../components/Modal';
+import RangeCalendar from '../components/RangeCalendar';
 import { useChalets } from '../hooks/useChalets';
 import { useRol } from '../hooks/useRol';
 import { useAuth } from '../hooks/useAuth';
+import { useOrigenes } from '../hooks/useOrigenes';
+import { useOcupacion } from '../hooks/useOcupacion';
 
 const ORIGENES_HUESPED = [
   { value: 'website', label: 'Sitio web' },
@@ -15,14 +18,6 @@ const ORIGENES_HUESPED = [
   { value: 'whatsapp_directo', label: 'WhatsApp directo' },
   { value: 'walk_in', label: 'Walk-in' },
   { value: 'otro', label: 'Otro' },
-];
-
-const ORIGENES_RESERVA = [
-  { value: 'directa', label: 'Directa' },
-  { value: 'airbnb', label: 'Airbnb' },
-  { value: 'booking', label: 'Booking' },
-  { value: 'referido', label: 'Referido' },
-  { value: 'app_manual', label: 'Manual / App' },
 ];
 
 const inputStyle = {
@@ -55,12 +50,14 @@ const INITIAL = {
   phone: '', nombre: '', apellidos: '', email: '', origenInicial: 'whatsapp_directo',
   chaletId: '', fechaEntrada: '', fechaSalida: '', numHuespedes: 2,
   notas: '', estado: 'pendiente_pago', origenReserva: 'directa',
+  montoManual: '', vendedor: '',
 };
 
 export default function NuevaReservaForm({ open, onClose, onCreated }) {
   const { data: chalets } = useChalets();
   const { isAdmin } = useRol();
   const { user } = useAuth();
+  const { data: origenes } = useOrigenes();
 
   const [form, setForm] = useState(INITIAL);
   const [huespedFound, setHuespedFound] = useState(null);
@@ -71,6 +68,12 @@ export default function NuevaReservaForm({ open, onClose, onCreated }) {
   const [submitError, setSubmitError] = useState(null);
 
   const set = (patch) => setForm((f) => ({ ...f, ...patch }));
+
+  const origenesVisibles = origenes.filter((o) => isAdmin || !o.solo_admin);
+  const origenSel = origenes.find((o) => o.clave === form.origenReserva);
+  const precioArbitrario = origenSel?.aplica_precio === 'arbitrario';
+  const esReferido = form.origenReserva === 'referido';
+  const { occupied } = useOcupacion(form.chaletId);
 
   // Reset al abrir.
   useEffect(() => {
@@ -143,10 +146,16 @@ export default function NuevaReservaForm({ open, onClose, onCreated }) {
     return () => { cancelled = true; };
   }, [form.chaletId, form.fechaEntrada, form.fechaSalida]);
 
+  const montoManualNum = form.montoManual === '' ? null : Number(form.montoManual);
+  const montoOk = precioArbitrario
+    ? montoManualNum !== null && Number.isFinite(montoManualNum) && montoManualNum >= 0
+    : !!calculo && !calculoError;
+
   const valid =
     !!form.nombre.trim() && normalizePhone(form.phone).length >= 10 &&
     !!form.chaletId && !!form.fechaEntrada && !!form.fechaSalida &&
-    !!calculo && !calculoError && !solape.blocking;
+    montoOk && !solape.blocking &&
+    (!esReferido || !!form.vendedor.trim());
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -172,12 +181,13 @@ export default function NuevaReservaForm({ open, onClose, onCreated }) {
         fecha_entrada: form.fechaEntrada,
         fecha_salida: form.fechaSalida,
         num_huespedes: Number(form.numHuespedes) || 2,
-        subtotal_neto: calculo.subtotal_neto,
-        iva: calculo.iva,
-        impuesto_hospedaje: calculo.impuesto_hospedaje,
-        monto_total: calculo.total,
+        subtotal_neto: precioArbitrario ? 0 : calculo.subtotal_neto,
+        iva: precioArbitrario ? 0 : calculo.iva,
+        impuesto_hospedaje: precioArbitrario ? 0 : calculo.impuesto_hospedaje,
+        monto_total: precioArbitrario ? montoManualNum : calculo.total,
         estado: form.estado,
         origen: form.origenReserva,
+        vendedor: esReferido ? form.vendedor.trim() : null,
         notas: form.notas.trim() || null,
         creada_por: user?.id ?? null,
       });
@@ -254,24 +264,46 @@ export default function NuevaReservaForm({ open, onClose, onCreated }) {
             <label style={labelStyle}>Origen de la reserva</label>
             <select style={inputStyle} value={form.origenReserva}
                     onChange={(e) => set({ origenReserva: e.target.value })}>
-              {ORIGENES_RESERVA.map((o) => (
-                <option key={o.value} value={o.value}>{o.label}</option>
+              {origenesVisibles.map((o) => (
+                <option key={o.clave} value={o.clave}>{o.etiqueta_es}</option>
               ))}
             </select>
           </div>
         </div>
 
+        {esReferido && (
+          <div style={fieldStyle}>
+            <label style={labelStyle}>Vendedor que refirió</label>
+            <input style={inputStyle} placeholder="Nombre del vendedor"
+                   value={form.vendedor}
+                   onChange={(e) => set({ vendedor: e.target.value })} required />
+          </div>
+        )}
+
+        {precioArbitrario && (
+          <div style={fieldStyle}>
+            <label style={labelStyle}>Monto total (MXN) — cortesía, $0 válido</label>
+            <input style={inputStyle} type="number" min={0} step="0.01"
+                   placeholder="0"
+                   value={form.montoManual}
+                   onChange={(e) => set({ montoManual: e.target.value })} required />
+          </div>
+        )}
+
+        <div style={fieldStyle}>
+          <label style={labelStyle}>
+            Fechas {form.chaletId ? '(noches ocupadas tachadas en rojo)' : '— selecciona un chalet primero'}
+          </label>
+          <RangeCalendar
+            entrada={form.fechaEntrada}
+            salida={form.fechaSalida}
+            occupied={occupied}
+            disabled={!form.chaletId}
+            onChange={({ entrada, salida }) => set({ fechaEntrada: entrada, fechaSalida: salida })}
+          />
+        </div>
+
         <div style={rowStyle}>
-          <div style={{ ...fieldStyle, flex: 1, minWidth: 140 }}>
-            <label style={labelStyle}>Entrada</label>
-            <input style={inputStyle} type="date" value={form.fechaEntrada}
-                   onChange={(e) => set({ fechaEntrada: e.target.value })} required />
-          </div>
-          <div style={{ ...fieldStyle, flex: 1, minWidth: 140 }}>
-            <label style={labelStyle}>Salida</label>
-            <input style={inputStyle} type="date" value={form.fechaSalida}
-                   onChange={(e) => set({ fechaSalida: e.target.value })} required />
-          </div>
           <div style={{ ...fieldStyle, width: 100 }}>
             <label style={labelStyle}># Huéspedes</label>
             <input style={inputStyle} type="number" min={1} max={10} value={form.numHuespedes}
@@ -297,8 +329,22 @@ export default function NuevaReservaForm({ open, onClose, onCreated }) {
           </div>
         )}
 
-        {/* Cálculo */}
-        <Breakdown calculo={calculo} error={calculoError} />
+        {/* Cálculo (los orígenes de precio arbitrario usan el monto manual) */}
+        {precioArbitrario ? (
+          montoManualNum !== null && (
+            <div style={{
+              background: T.dark, border: `1px solid ${T.border}`, borderRadius: 8,
+              padding: '12px 14px', margin: '14px 0', fontSize: 13,
+              display: 'flex', justifyContent: 'space-between',
+              color: T.goldLight, fontWeight: 600, fontFamily: "'DM Sans', sans-serif",
+            }}>
+              <span>Total ({origenSel?.etiqueta_es})</span>
+              <span>{formatMoney(montoManualNum)}</span>
+            </div>
+          )
+        ) : (
+          <Breakdown calculo={calculo} error={calculoError} />
+        )}
 
         {/* Disponibilidad */}
         {solape.blocking && (
