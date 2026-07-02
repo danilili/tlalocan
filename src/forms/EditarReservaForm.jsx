@@ -3,6 +3,7 @@ import { supabase } from '../lib/supabase';
 import { T } from '../lib/design-tokens';
 import { formatMoney, normalizePhone } from '../lib/format';
 import Modal from '../components/Modal';
+import PagosReserva from '../components/PagosReserva';
 import { useRol } from '../hooks/useRol';
 
 const ESTADOS_EDIT = [
@@ -15,8 +16,8 @@ const ESTADOS_EDIT = [
   { value: 'no_show', label: 'No-show' },
 ];
 
-export default function EditarReservaForm({ open, reserva, onClose, onUpdated }) {
-  const { isAdmin, isSuperAdmin } = useRol();
+export default function EditarReservaForm({ open, reserva, onClose, onUpdated, onExtender }) {
+  const { isAdmin } = useRol();
 
   const [fechaEntrada, setFechaEntrada] = useState('');
   const [fechaSalida, setFechaSalida] = useState('');
@@ -40,7 +41,6 @@ export default function EditarReservaForm({ open, reserva, onClose, onUpdated })
   const [solapeBlocking, setSolapeBlocking] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState(null);
-  const [confirmDelete, setConfirmDelete] = useState(false);
 
   useEffect(() => {
     if (!open || !reserva) return;
@@ -61,7 +61,6 @@ export default function EditarReservaForm({ open, reserva, onClose, onUpdated })
     setCalculoError(null);
     setSolapeBlocking(false);
     setSubmitError(null);
-    setConfirmDelete(false);
   }, [open, reserva]);
 
   const fechasCambiadas =
@@ -146,23 +145,6 @@ export default function EditarReservaForm({ open, reserva, onClose, onUpdated })
     !calculoError &&
     !solapeBlocking &&
     (!fechasCambiadas || !!calculo);
-
-  const handleDelete = async () => {
-    if (!confirmDelete) {
-      setConfirmDelete(true);
-      return;
-    }
-    setSubmitting(true);
-    setSubmitError(null);
-    const { error } = await supabase.from('reservas').delete().eq('id', reserva.id);
-    setSubmitting(false);
-    if (error) {
-      setSubmitError(error.message);
-      return;
-    }
-    onUpdated?.();
-    onClose?.();
-  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -331,6 +313,17 @@ export default function EditarReservaForm({ open, reserva, onClose, onUpdated })
           />
         </div>
 
+        {reserva.origen !== 'airbnb' && (
+          <div style={fieldStyle}>
+            <PagosReserva
+              reservaId={reserva.id}
+              montoTotal={monto === '' ? reserva.monto_total : Number(monto)}
+              montoPagadoInicial={reserva.monto_pagado}
+              onChanged={onUpdated}
+            />
+          </div>
+        )}
+
         {reserva.origen === 'airbnb' && (
           <div style={fieldStyle}>
             <label style={labelStyle}>Código Airbnb (HM…) — para conciliación</label>
@@ -395,18 +388,19 @@ export default function EditarReservaForm({ open, reserva, onClose, onUpdated })
             flexWrap: 'wrap',
           }}
         >
-          {isSuperAdmin ? (
+          {reserva.estado === 'en_curso' && onExtender ? (
             <button
               type="button"
-              onClick={handleDelete}
+              onClick={() => onExtender(reserva)}
               disabled={submitting}
+              title="Crea una reserva de extensión ligada a esta estancia"
               style={{
-                ...btnDanger,
+                ...btnExtender,
                 opacity: submitting ? 0.5 : 1,
                 cursor: submitting ? 'wait' : 'pointer',
               }}
             >
-              {confirmDelete ? '¿Confirmar borrado?' : 'Eliminar reserva'}
+              ⤳ Extender reservación
             </button>
           ) : (
             <span />
@@ -549,10 +543,10 @@ const btnSecondary = {
   fontFamily: "'DM Sans', sans-serif",
 };
 
-const btnDanger = {
-  background: 'rgba(199,80,80,0.12)',
-  color: T.red,
-  border: `1px solid rgba(199,80,80,0.3)`,
+const btnExtender = {
+  background: 'rgba(184,134,11,0.12)',
+  color: T.goldLight,
+  border: '1px solid rgba(184,134,11,0.35)',
   borderRadius: 8,
   padding: '10px 16px',
   fontSize: 13,

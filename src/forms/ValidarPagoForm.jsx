@@ -13,10 +13,11 @@ export default function ValidarPagoForm({ open, reserva, onClose, onUpdated }) {
   const [urlError, setUrlError] = useState(null);
   const [mode, setMode] = useState('view'); // 'view' | 'reject'
   const [motivo, setMotivo] = useState('');
+  const [montoComprobante, setMontoComprobante] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState(null);
 
-  // Reset al abrir.
+  // Reset al abrir. El monto arranca en el saldo restante de la reserva.
   useEffect(() => {
     if (!open) return;
     setMode('view');
@@ -24,6 +25,10 @@ export default function ValidarPagoForm({ open, reserva, onClose, onUpdated }) {
     setSubmitError(null);
     setSignedUrl(null);
     setUrlError(null);
+    const saldo = Math.max(
+      (Number(reserva?.monto_total) || 0) - (Number(reserva?.monto_pagado) || 0), 0,
+    );
+    setMontoComprobante(saldo > 0 ? String(saldo) : '');
   }, [open, reserva?.id]);
 
   // Generar signed URL del comprobante (bucket privado).
@@ -75,6 +80,24 @@ export default function ValidarPagoForm({ open, reserva, onClose, onUpdated }) {
       setSubmitError('Esta reserva ya fue validada o cancelada por otro canal.');
       onUpdated?.();
       return;
+    }
+    // Registrar el pago en el ledger (trigger de BD actualiza monto_pagado).
+    const montoNum = Number(montoComprobante);
+    if (Number.isFinite(montoNum) && montoNum > 0) {
+      const { error: pErr } = await supabase.from('pagos').insert({
+        reserva_id: reserva.id,
+        forma_pago: 'transferencia',
+        monto: montoNum,
+        nota: 'Comprobante validado desde la app',
+        registrado_por: user?.id ?? null,
+      });
+      if (pErr) {
+        setSubmitError(
+          `La reserva se confirmó, pero el pago no se registró en el ledger: ${pErr.message}. Regístralo desde Editar reserva.`,
+        );
+        onUpdated?.();
+        return;
+      }
     }
     // Avisar al huésped por WhatsApp (best-effort, no bloquea).
     notificarHuesped({ reserva_id: reserva.id, validada: true });
@@ -154,6 +177,43 @@ export default function ValidarPagoForm({ open, reserva, onClose, onUpdated }) {
           </a>
         )}
       </div>
+
+      {mode === 'view' && (
+        <div style={{ marginBottom: 12 }}>
+          <label
+            style={{
+              fontSize: 11,
+              color: T.muted,
+              letterSpacing: 0.6,
+              textTransform: 'uppercase',
+              display: 'block',
+              marginBottom: 6,
+              fontFamily: "'DM Sans', sans-serif",
+            }}
+          >
+            Monto del comprobante (MXN) — se registra como pago por transferencia
+          </label>
+          <input
+            type="number"
+            min={0}
+            step="0.01"
+            value={montoComprobante}
+            onChange={(e) => setMontoComprobante(e.target.value)}
+            style={{
+              width: '100%',
+              background: T.dark,
+              border: `1px solid ${T.border}`,
+              borderRadius: 8,
+              padding: '10px 12px',
+              color: T.text,
+              fontSize: 14,
+              outline: 'none',
+              boxSizing: 'border-box',
+              fontFamily: "'DM Sans', sans-serif",
+            }}
+          />
+        </div>
+      )}
 
       {mode === 'reject' && (
         <div style={{ marginBottom: 12 }}>
