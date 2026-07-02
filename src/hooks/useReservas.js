@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState, useCallback } from 'react';
 import { supabase } from '../lib/supabase';
 
 const SELECT_WITH_RELATIONS =
-  '*, chalet:chalets(id, nombre, slug), huesped:huespedes(id, nombre, apellidos, telefono, email)';
+  '*, chalet:chalets(id, nombre, slug), huesped:huespedes(id, nombre, apellidos, telefono, email, whatsapp_valido)';
 
 // Filtros: chalet, huesped, estado (string o array), rango de fechas y limit.
 // Las reservas que solapan con [desde, hasta) se incluyen.

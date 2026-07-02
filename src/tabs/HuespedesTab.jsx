@@ -5,6 +5,7 @@ import Card from '../components/Card';
 import MetricCard from '../components/MetricCard';
 import FadeIn from '../components/FadeIn';
 import SectionTitle from '../components/SectionTitle';
+import WhatsAppBadge from '../components/badges/WhatsAppBadge';
 import { useHuespedes } from '../hooks/useHuespedes';
 import { formatMoney, formatDate } from '../lib/format';
 
@@ -144,9 +145,23 @@ export default function HuespedesTab() {
                   <div style={{ fontSize: 14, fontWeight: 500 }}>
                     {[g.nombre, g.apellidos].filter(Boolean).join(' ')}
                   </div>
-                  <div style={{ fontSize: 11, color: T.muted, marginTop: 1 }}>
-                    {g.telefono} · {g.total_estancias} estancia{g.total_estancias === 1 ? '' : 's'}
-                    {g.ultima_visita ? ` · Última: ${formatDate(g.ultima_visita)}` : ''}
+                  <div
+                    style={{
+                      fontSize: 11,
+                      color: T.muted,
+                      marginTop: 1,
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 6,
+                      flexWrap: 'wrap',
+                    }}
+                  >
+                    <span>
+                      {g.telefono} · {g.total_estancias} estancia
+                      {g.total_estancias === 1 ? '' : 's'}
+                      {g.ultima_visita ? ` · Última: ${formatDate(g.ultima_visita)}` : ''}
+                    </span>
+                    <WhatsAppBadge valido={g.whatsapp_valido} />
                   </div>
                 </div>
                 <div style={{ textAlign: 'right' }}>
