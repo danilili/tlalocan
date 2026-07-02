@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import { T } from '../lib/design-tokens';
 import Card from '../components/Card';
 import StatusBadge from '../components/badges/StatusBadge';
+import WhatsAppBadge from '../components/badges/WhatsAppBadge';
 import FadeIn from '../components/FadeIn';
 import { useReservas } from '../hooks/useReservas';
 import { useRol } from '../hooks/useRol';
@@ -94,7 +95,19 @@ export default function ReservasTab() {
                   }}
                 >
                   <div style={{ minWidth: 140, flex: 1 }}>
-                    <div style={{ fontSize: 14, fontWeight: 500 }}>{fullName(r.huesped)}</div>
+                    <div
+                      style={{
+                        fontSize: 14,
+                        fontWeight: 500,
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 6,
+                        flexWrap: 'wrap',
+                      }}
+                    >
+                      {fullName(r.huesped)}
+                      <WhatsAppBadge valido={r.huesped?.whatsapp_valido} />
+                    </div>
                     <div style={{ fontSize: 11, color: T.muted, marginTop: 2 }}>Huésped</div>
                   </div>
                   <div style={{ minWidth: 130, flex: 1 }}>
