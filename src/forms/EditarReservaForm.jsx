@@ -3,6 +3,7 @@ import { supabase } from '../lib/supabase';
 import { T } from '../lib/design-tokens';
 import { formatMoney, normalizePhone } from '../lib/format';
 import Modal from '../components/Modal';
+import PagosReserva from '../components/PagosReserva';
 import { useRol } from '../hooks/useRol';
 
 const ESTADOS_EDIT = [
@@ -330,6 +331,17 @@ export default function EditarReservaForm({ open, reserva, onClose, onUpdated })
             onChange={(e) => setMonto(e.target.value)}
           />
         </div>
+
+        {reserva.origen !== 'airbnb' && (
+          <div style={fieldStyle}>
+            <PagosReserva
+              reservaId={reserva.id}
+              montoTotal={monto === '' ? reserva.monto_total : Number(monto)}
+              montoPagadoInicial={reserva.monto_pagado}
+              onChanged={onUpdated}
+            />
+          </div>
+        )}
 
         {reserva.origen === 'airbnb' && (
           <div style={fieldStyle}>

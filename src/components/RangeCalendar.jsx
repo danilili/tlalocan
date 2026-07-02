@@ -11,7 +11,9 @@ const DIAS = ['L', 'M', 'M', 'J', 'V', 'S', 'D'];
 // Selector de rango entrada→salida con noches ocupadas bloqueadas.
 // occupied: Set<'YYYY-MM-DD'> de NOCHES ocupadas. El día de salida de una
 // reserva existente sí es seleccionable como salida propia (la noche manda).
-export default function RangeCalendar({ entrada, salida, onChange, occupied, disabled }) {
+// fixedEntrada: la entrada viene dada (p.ej. extensión = salida de la reserva
+// original) y los clics solo eligen la salida.
+export default function RangeCalendar({ entrada, salida, onChange, occupied, disabled, fixedEntrada }) {
   const hoy = useMemo(() => parseISO(format(new Date(), 'yyyy-MM-dd')), []);
   const [mes, setMes] = useState(() => startOfMonth(entrada ? parseISO(entrada) : new Date()));
   const [aviso, setAviso] = useState(null);
@@ -39,6 +41,13 @@ export default function RangeCalendar({ entrada, salida, onChange, occupied, dis
       if (nocheOcupada) { setAviso('Esa noche ya está ocupada.'); return; }
       onChange({ entrada: key, salida: '' });
     };
+
+    if (fixedEntrada) {
+      if (!entradaDate || !isBefore(entradaDate, dia)) return;
+      if (rangoLibre(entradaDate, dia)) onChange({ entrada, salida: key });
+      else setAviso('El rango cruza noches ocupadas.');
+      return;
+    }
 
     if (!entradaDate || salidaDate || !isBefore(entradaDate, dia)) {
       empezarEn();
