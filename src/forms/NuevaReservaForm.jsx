@@ -57,7 +57,9 @@ const INITIAL = {
   reservaOrigenId: '', formaPagoExt: '', pagoEfectivoCompleto: false, pagos: [],
 };
 
-export default function NuevaReservaForm({ open, onClose, onCreated }) {
+// reservaAExtender: si viene, el form abre directo en modo extensión
+// prellenado con esa estancia (botón "Extender reservación" de Editar reserva).
+export default function NuevaReservaForm({ open, onClose, onCreated, reservaAExtender }) {
   const { data: chalets } = useChalets();
   const { isAdmin } = useRol();
   const { user } = useAuth();
@@ -86,15 +88,35 @@ export default function NuevaReservaForm({ open, onClose, onCreated }) {
   const { occupied } = useOcupacion(form.chaletId);
 
   // Reset al abrir (+ refrescar reservas en curso para el selector de extensión).
+  // Si viene reservaAExtender, arranca prellenado en modo extensión.
   useEffect(() => {
     if (open) {
-      setForm({ ...INITIAL });
+      if (reservaAExtender) {
+        setForm({
+          ...INITIAL,
+          origenReserva: 'extension',
+          reservaOrigenId: reservaAExtender.id,
+          chaletId: reservaAExtender.chalet_id ?? reservaAExtender.chalet?.id ?? '',
+          fechaEntrada: reservaAExtender.fecha_salida ?? '',
+          phone: reservaAExtender.huesped?.telefono ?? '',
+          numHuespedes: reservaAExtender.num_huespedes ?? 2,
+        });
+      } else {
+        setForm({ ...INITIAL });
+      }
       setHuespedFound(null); setCalculo(null); setCalculoError(null);
       setSolape({ blocking: false, warning: false }); setSubmitError(null);
       refetchEnCurso();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open]);
+  }, [open, reservaAExtender]);
+
+  // Opciones del selector de extensión: garantiza que la estancia prellenada
+  // aparezca aunque el fetch de en_curso aún no la traiga.
+  const opcionesExtension = reservaAExtender &&
+    !reservasEnCurso.some((r) => r.id === reservaAExtender.id)
+    ? [reservaAExtender, ...reservasEnCurso]
+    : reservasEnCurso;
 
   // Si el origen actual no es visible para este rol, caer al primero visible.
   useEffect(() => {
@@ -179,7 +201,7 @@ export default function NuevaReservaForm({ open, onClose, onCreated }) {
 
   // Extensión: elegir la reserva en curso fija chalet, entrada y huésped.
   const onSelectReservaOrigen = (id) => {
-    const r = reservasEnCurso.find((x) => x.id === id);
+    const r = opcionesExtension.find((x) => x.id === id);
     set({
       reservaOrigenId: id,
       chaletId: r?.chalet_id ?? r?.chalet?.id ?? '',
@@ -319,7 +341,7 @@ export default function NuevaReservaForm({ open, onClose, onCreated }) {
   };
 
   return (
-    <Modal open={open} onClose={onClose} title="Nueva reserva" maxWidth={580} dismissOnBackdrop={false} dismissOnEscape={false}>
+    <Modal open={open} onClose={onClose} title={reservaAExtender ? 'Extender reservación' : 'Nueva reserva'} maxWidth={580} dismissOnBackdrop={false} dismissOnEscape={false}>
       <form onSubmit={handleSubmit}>
         {/* Origen primero: define el flujo completo */}
         <div style={fieldStyle}>
@@ -338,7 +360,7 @@ export default function NuevaReservaForm({ open, onClose, onCreated }) {
             <select style={inputStyle} value={form.reservaOrigenId}
                     onChange={(e) => onSelectReservaOrigen(e.target.value)} required>
               <option value="">— Selecciona la estancia en curso —</option>
-              {reservasEnCurso.map((r) => (
+              {opcionesExtension.map((r) => (
                 <option key={r.id} value={r.id}>
                   {[r.huesped?.nombre, r.huesped?.apellidos].filter(Boolean).join(' ') || 'Huésped'}
                   {' · '}{r.chalet?.nombre ?? ''}
@@ -346,7 +368,7 @@ export default function NuevaReservaForm({ open, onClose, onCreated }) {
                 </option>
               ))}
             </select>
-            {reservasEnCurso.length === 0 && (
+            {opcionesExtension.length === 0 && (
               <div style={{ fontSize: 11, color: T.muted, marginTop: 4 }}>
                 No hay estancias en curso en este momento.
               </div>

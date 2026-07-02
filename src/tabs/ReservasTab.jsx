@@ -17,6 +17,7 @@ export default function ReservasTab() {
   const [showForm, setShowForm] = useState(false);
   const [validating, setValidating] = useState(null); // reserva | null
   const [editing, setEditing] = useState(null); // reserva | null
+  const [extending, setExtending] = useState(null); // reserva en curso a extender | null
   const { isAdmin } = useRol();
 
   const today = useMemo(() => new Date().toISOString().slice(0, 10), []);
@@ -171,8 +172,9 @@ export default function ReservasTab() {
       </FadeIn>
 
       <NuevaReservaForm
-        open={showForm}
-        onClose={() => setShowForm(false)}
+        open={showForm || !!extending}
+        reservaAExtender={extending}
+        onClose={() => { setShowForm(false); setExtending(null); }}
         onCreated={refetch}
       />
 
@@ -188,6 +190,7 @@ export default function ReservasTab() {
         reserva={editing}
         onClose={() => setEditing(null)}
         onUpdated={refetch}
+        onExtender={(r) => { setEditing(null); setExtending(r); }}
       />
     </>
   );
