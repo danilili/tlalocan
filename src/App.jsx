@@ -8,6 +8,7 @@ import LoginPage from './pages/LoginPage';
 import DashboardPage from './pages/DashboardPage';
 import ResumenTab from './tabs/ResumenTab';
 import ReservasTab from './tabs/ReservasTab';
+import CalendarioTab from './tabs/CalendarioTab';
 import HuespedesTab from './tabs/HuespedesTab';
 import StaffTab from './tabs/StaffTab';
 import ChaletsTab from './tabs/ChaletsTab';
@@ -83,6 +84,7 @@ export default function App() {
         >
           <Route index element={<ResumenTab />} />
           <Route path="reservas" element={<ReservasTab />} />
+          <Route path="calendario" element={<CalendarioTab />} />
           <Route path="huespedes" element={<HuespedesTab />} />
           <Route
             path="staff"

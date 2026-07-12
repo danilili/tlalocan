@@ -20,6 +20,7 @@ const SUPER_ONLY = ['super_admin'];
 const TABS = [
   { to: '/', label: 'Resumen', end: true, roles: ALL_ROLES },
   { to: '/reservas', label: 'Reservas', roles: ALL_ROLES },
+  { to: '/calendario', label: 'Calendario', roles: ALL_ROLES },
   { to: '/huespedes', label: 'Huéspedes', roles: ALL_ROLES },
   { to: '/staff', label: 'Staff', roles: ADMIN_ROLES },
   { to: '/chalets', label: 'Chalets', roles: ADMIN_ROLES },
