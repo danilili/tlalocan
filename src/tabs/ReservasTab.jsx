@@ -2,11 +2,14 @@ import { useMemo, useState } from 'react';
 import { T } from '../lib/design-tokens';
 import Card from '../components/Card';
 import StatusBadge from '../components/badges/StatusBadge';
+import SourceBadge from '../components/badges/SourceBadge';
 import WhatsAppBadge from '../components/badges/WhatsAppBadge';
 import FadeIn from '../components/FadeIn';
+import { supabase } from '../lib/supabase';
 import { useReservas } from '../hooks/useReservas';
 import { useRol } from '../hooks/useRol';
 import NuevaReservaForm from '../forms/NuevaReservaForm';
+import BloquearFechasForm from '../forms/BloquearFechasForm';
 import ValidarPagoForm from '../forms/ValidarPagoForm';
 import EditarReservaForm from '../forms/EditarReservaForm';
 import { formatMoney, formatDateShort } from '../lib/format';
@@ -15,9 +18,11 @@ const ESTADOS_PROXIMAS = ['cotizada', 'pendiente_pago', 'confirmada', 'en_curso'
 
 export default function ReservasTab() {
   const [showForm, setShowForm] = useState(false);
+  const [showBloqueo, setShowBloqueo] = useState(false);
   const [validating, setValidating] = useState(null); // reserva | null
   const [editing, setEditing] = useState(null); // reserva | null
   const [extending, setExtending] = useState(null); // reserva en curso a extender | null
+  const [liberando, setLiberando] = useState(null); // id del bloqueo en proceso
   const { isAdmin } = useRol();
 
   const today = useMemo(() => new Date().toISOString().slice(0, 10), []);
@@ -31,6 +36,24 @@ export default function ReservasTab() {
 
   const requiresValidation = (r) =>
     r.estado === 'pendiente_pago' && !!r.comprobante_url;
+
+  // Liberar bloqueo = pasar a cancelada (con confirmación). RLS permite a
+  // ventas esta actualización solo sobre origen='bloqueo'.
+  const liberarBloqueo = async (r) => {
+    const ok = window.confirm(
+      `¿Liberar el bloqueo de ${r.chalet?.nombre ?? 'chalet'} (${formatDateShort(r.fecha_entrada)} → ${formatDateShort(r.fecha_salida)})? Las fechas quedarán disponibles de nuevo.`,
+    );
+    if (!ok) return;
+    setLiberando(r.id);
+    const { error: updError } = await supabase
+      .from('reservas')
+      .update({ estado: 'cancelada' })
+      .eq('id', r.id)
+      .eq('origen', 'bloqueo');
+    setLiberando(null);
+    if (updError) window.alert(`No se pudo liberar el bloqueo: ${updError.message}`);
+    else refetch();
+  };
 
   return (
     <>
@@ -57,9 +80,14 @@ export default function ReservasTab() {
           >
             Próximas reservas
           </h2>
-          <button type="button" onClick={() => setShowForm(true)} style={btnNueva}>
-            + Nueva reserva
-          </button>
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+            <button type="button" onClick={() => setShowBloqueo(true)} style={btnBloquear}>
+              ⛔ Bloquear fechas
+            </button>
+            <button type="button" onClick={() => setShowForm(true)} style={btnNueva}>
+              + Nueva reserva
+            </button>
+          </div>
         </div>
 
         {loading && (
@@ -80,7 +108,8 @@ export default function ReservasTab() {
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
           {reservas.map((r, i) => {
-            const needsValidation = requiresValidation(r);
+            const esBloqueo = r.origen === 'bloqueo';
+            const needsValidation = !esBloqueo && requiresValidation(r);
             const clickable = needsValidation && isAdmin;
             return (
               <FadeIn key={r.id} delay={i * 40}>
@@ -104,12 +133,15 @@ export default function ReservasTab() {
                         alignItems: 'center',
                         gap: 6,
                         flexWrap: 'wrap',
+                        color: esBloqueo ? T.muted : T.text,
                       }}
                     >
-                      {fullName(r.huesped)}
-                      <WhatsAppBadge valido={r.huesped?.whatsapp_valido} />
+                      {esBloqueo ? (r.notas || 'Bloqueo operativo') : fullName(r.huesped)}
+                      {!esBloqueo && <WhatsAppBadge valido={r.huesped?.whatsapp_valido} />}
                     </div>
-                    <div style={{ fontSize: 11, color: T.muted, marginTop: 2 }}>Huésped</div>
+                    <div style={{ fontSize: 11, color: T.muted, marginTop: 2 }}>
+                      {esBloqueo ? 'Motivo del bloqueo' : 'Huésped'}
+                    </div>
                   </div>
                   <div style={{ minWidth: 130, flex: 1 }}>
                     <div style={{ fontSize: 13, fontWeight: 500, color: T.goldLight }}>
@@ -137,32 +169,51 @@ export default function ReservasTab() {
                   )}
                   <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
                     {needsValidation && <PagoPendienteBadge />}
+                    {esBloqueo && <SourceBadge source="bloqueo" />}
                     <StatusBadge status={r.estado} />
                   </div>
-                  <div
-                    style={{
-                      fontSize: 14,
-                      fontWeight: 600,
-                      color: T.goldLight,
-                      minWidth: 90,
-                      textAlign: 'right',
-                    }}
-                  >
-                    {formatMoney(r.monto_total)}
-                  </div>
-                  {isAdmin && (
+                  {!esBloqueo && (
+                    <div
+                      style={{
+                        fontSize: 14,
+                        fontWeight: 600,
+                        color: T.goldLight,
+                        minWidth: 90,
+                        textAlign: 'right',
+                      }}
+                    >
+                      {formatMoney(r.monto_total)}
+                    </div>
+                  )}
+                  {esBloqueo ? (
                     <button
                       type="button"
                       onClick={(e) => {
                         e.stopPropagation();
-                        setEditing(r);
+                        liberarBloqueo(r);
                       }}
-                      title="Editar reserva"
-                      aria-label="Editar reserva"
-                      style={btnEdit}
+                      disabled={liberando === r.id}
+                      title="Liberar bloqueo"
+                      aria-label="Liberar bloqueo"
+                      style={{ ...btnEdit, opacity: liberando === r.id ? 0.5 : 1 }}
                     >
-                      ✎
+                      🔓
                     </button>
+                  ) : (
+                    isAdmin && (
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setEditing(r);
+                        }}
+                        title="Editar reserva"
+                        aria-label="Editar reserva"
+                        style={btnEdit}
+                      >
+                        ✎
+                      </button>
+                    )
                   )}
                 </Card>
               </FadeIn>
@@ -175,6 +226,12 @@ export default function ReservasTab() {
         open={showForm || !!extending}
         reservaAExtender={extending}
         onClose={() => { setShowForm(false); setExtending(null); }}
+        onCreated={refetch}
+      />
+
+      <BloquearFechasForm
+        open={showBloqueo}
+        onClose={() => setShowBloqueo(false)}
         onCreated={refetch}
       />
 
@@ -227,6 +284,13 @@ const btnNueva = {
   textTransform: 'uppercase',
   cursor: 'pointer',
   fontFamily: "'DM Sans', sans-serif",
+};
+
+const btnBloquear = {
+  ...btnNueva,
+  background: 'transparent',
+  color: T.muted,
+  border: `1px solid ${T.border}`,
 };
 
 const btnEdit = {
