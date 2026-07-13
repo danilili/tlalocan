@@ -53,6 +53,9 @@ export default function CalendarioTab() {
   const [inicio, setInicio] = useState(() => addDays(startOfDay(new Date()), -3));
   const [selected, setSelected] = useState(null);
   const [liberando, setLiberando] = useState(false);
+  // Vista elegida a mano; mientras no se toque el toggle, sigue al dispositivo.
+  const [vistaManual, setVistaManual] = useState(null);
+  const vista = vistaManual ?? (isMobile ? 'agenda' : 'timeline');
 
   const desde = format(inicio, 'yyyy-MM-dd');
   const hasta = format(addDays(inicio, DIAS), 'yyyy-MM-dd');
@@ -123,7 +126,8 @@ export default function CalendarioTab() {
         >
           Calendario · {formatDateShort(dias[0])} → {formatDateShort(dias[DIAS - 1])}
         </h2>
-        <div style={{ display: 'flex', gap: 6 }}>
+        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
+          <VistaToggle vista={vista} onChange={setVistaManual} />
           <button type="button" style={btnNav} onClick={() => setInicio((d) => addDays(d, -PASO))}>←</button>
           <button type="button" style={btnNav} onClick={() => setInicio(addDays(hoy, -3))}>Hoy</button>
           <button type="button" style={btnNav} onClick={() => setInicio((d) => addDays(d, PASO))}>→</button>
@@ -134,7 +138,7 @@ export default function CalendarioTab() {
         <div style={{ color: T.red, fontSize: 12, padding: '8px 0' }}>Error: {error.message}</div>
       )}
 
-      {isMobile ? (
+      {vista === 'agenda' ? (
         <Agenda reservas={reservas} loading={loading} onSelect={setSelected} />
       ) : (
         <Timeline
@@ -160,7 +164,53 @@ export default function CalendarioTab() {
   );
 }
 
-// ── Timeline desktop: filas = chalets, columnas = días, barras estilo Airbnb ──
+// Toggle segmentado Cronograma | Agenda, disponible en móvil y escritorio.
+function VistaToggle({ vista, onChange }) {
+  const opciones = [
+    { value: 'timeline', label: '▦ Cronograma' },
+    { value: 'agenda', label: '☰ Agenda' },
+  ];
+  return (
+    <div
+      role="group"
+      aria-label="Tipo de vista"
+      style={{
+        display: 'flex',
+        border: `1px solid ${T.border}`,
+        borderRadius: 8,
+        overflow: 'hidden',
+        marginRight: 6,
+      }}
+    >
+      {opciones.map((o) => {
+        const activa = vista === o.value;
+        return (
+          <button
+            key={o.value}
+            type="button"
+            aria-pressed={activa}
+            onClick={() => onChange(o.value)}
+            style={{
+              background: activa ? 'rgba(181,134,11,0.15)' : 'transparent',
+              color: activa ? T.goldLight : T.muted,
+              border: 'none',
+              padding: '6px 12px',
+              fontSize: 12,
+              fontWeight: activa ? 600 : 400,
+              cursor: 'pointer',
+              whiteSpace: 'nowrap',
+              fontFamily: "'DM Sans', sans-serif",
+            }}
+          >
+            {o.label}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+// ── Timeline: filas = chalets, columnas = días, barras estilo Airbnb ──
 function Timeline({ chalets, porChalet, dias, inicio, idxHoy, loading, onSelect }) {
   const colPct = 100 / DIAS;
   return (
