@@ -1,10 +1,11 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '../lib/supabase';
 import { T } from '../lib/design-tokens';
-import { formatMoney, normalizePhone } from '../lib/format';
+import { formatMoney, formatDate, normalizePhone } from '../lib/format';
 import Modal from '../components/Modal';
 import PagosReserva from '../components/PagosReserva';
 import { useRol } from '../hooks/useRol';
+import { creadorLabel } from '../lib/creador';
 
 const ESTADOS_EDIT = [
   { value: 'cotizada', label: 'Cotizada' },
@@ -22,6 +23,7 @@ export default function EditarReservaForm({ open, reserva, onClose, onUpdated, o
   const [fechaEntrada, setFechaEntrada] = useState('');
   const [fechaSalida, setFechaSalida] = useState('');
   const [numHuespedes, setNumHuespedes] = useState(2);
+  const [numMascotas, setNumMascotas] = useState(0);
   const [notas, setNotas] = useState('');
   const [estado, setEstado] = useState('pendiente_pago');
 
@@ -47,6 +49,7 @@ export default function EditarReservaForm({ open, reserva, onClose, onUpdated, o
     setFechaEntrada(reserva.fecha_entrada ?? '');
     setFechaSalida(reserva.fecha_salida ?? '');
     setNumHuespedes(reserva.num_huespedes ?? 2);
+    setNumMascotas(reserva.num_mascotas ?? 0);
     setNotas(reserva.notas ?? '');
     setEstado(reserva.estado ?? 'pendiente_pago');
     const placeholder =
@@ -184,6 +187,7 @@ export default function EditarReservaForm({ open, reserva, onClose, onUpdated, o
         fecha_entrada: fechaEntrada,
         fecha_salida: fechaSalida,
         num_huespedes: Number(numHuespedes) || 2,
+        num_mascotas: Math.max(0, Number(numMascotas) || 0),
         notas: notas.trim() || null,
         estado,
       };
@@ -218,6 +222,10 @@ export default function EditarReservaForm({ open, reserva, onClose, onUpdated, o
         <div style={summaryStyle}>
           <Row label="Huésped" value={fullName} />
           <Row label="Chalet" value={reserva.chalet?.nombre ?? '—'} />
+          <Row
+            label="Creada"
+            value={`${creadorLabel(reserva)}${reserva.created_at ? ` · ${formatDate(reserva.created_at)}` : ''}`}
+          />
         </div>
 
         {isPlaceholder && (
@@ -294,6 +302,17 @@ export default function EditarReservaForm({ open, reserva, onClose, onUpdated, o
               max={10}
               value={numHuespedes}
               onChange={(e) => setNumHuespedes(e.target.value)}
+            />
+          </div>
+          <div style={{ ...fieldStyle, width: 100 }}>
+            <label style={labelStyle}>🐾 Mascotas</label>
+            <input
+              style={inputStyle}
+              type="number"
+              min={0}
+              max={5}
+              value={numMascotas}
+              onChange={(e) => setNumMascotas(e.target.value)}
             />
           </div>
         </div>

@@ -51,7 +51,7 @@ const rowStyle = { display: 'flex', gap: 10, flexWrap: 'wrap' };
 
 const INITIAL = {
   phone: '', nombre: '', apellidos: '', email: '', origenInicial: 'whatsapp_directo',
-  chaletId: '', fechaEntrada: '', fechaSalida: '', numHuespedes: 2,
+  chaletId: '', fechaEntrada: '', fechaSalida: '', numHuespedes: 2, numMascotas: 0,
   notas: '', estado: 'pendiente_pago', origenReserva: 'referido',
   montoManual: '', vendedor: '',
   reservaOrigenId: '', formaPagoExt: '', pagoEfectivoCompleto: false, pagos: [],
@@ -250,7 +250,11 @@ export default function NuevaReservaForm({ open, onClose, onCreated, reservaAExt
     ? montoManualNum !== null && Number.isFinite(montoManualNum) && montoManualNum >= 0
     : !!calculo && !calculoError;
 
-  const estadoFinal = esExtension || form.pagoEfectivoCompleto ? 'confirmada' : form.estado;
+  // Cortesía siempre nace confirmada: no hay pago que esperar y así bloquea
+  // fechas en Airbnb/website de inmediato (solo 'confirmada' dispara el sync).
+  const esCortesia = form.origenReserva === 'cortesia';
+  const estadoFinal =
+    esExtension || form.pagoEfectivoCompleto || esCortesia ? 'confirmada' : form.estado;
 
   const valid =
     !!form.nombre.trim() && normalizePhone(form.phone).length >= 10 &&
@@ -299,6 +303,7 @@ export default function NuevaReservaForm({ open, onClose, onCreated, reservaAExt
         fecha_entrada: form.fechaEntrada,
         fecha_salida: form.fechaSalida,
         num_huespedes: Number(form.numHuespedes) || 2,
+        num_mascotas: Math.max(0, Number(form.numMascotas) || 0),
         subtotal_neto: sub,
         iva,
         impuesto_hospedaje: imp,
@@ -447,6 +452,11 @@ export default function NuevaReservaForm({ open, onClose, onCreated, reservaAExt
             <input style={inputStyle} type="number" min={1} max={10} value={form.numHuespedes}
                    onChange={(e) => set({ numHuespedes: e.target.value })} />
           </div>
+          <div style={{ ...fieldStyle, width: 100 }}>
+            <label style={labelStyle}>🐾 Mascotas</label>
+            <input style={inputStyle} type="number" min={0} max={5} value={form.numMascotas}
+                   onChange={(e) => set({ numMascotas: e.target.value })} />
+          </div>
         </div>
 
         {precioArbitrario && (
@@ -481,8 +491,8 @@ export default function NuevaReservaForm({ open, onClose, onCreated, reservaAExt
                     value={form.notas} onChange={(e) => set({ notas: e.target.value })} />
         </div>
 
-        {/* Estado al crear (la extensión siempre nace confirmada y cobrada) */}
-        {isAdmin && !esExtension && (
+        {/* Estado al crear (extensión y cortesía siempre nacen confirmadas) */}
+        {isAdmin && !esExtension && !esCortesia && (
           <div style={fieldStyle}>
             <label style={labelStyle}>Estado al crear</label>
             <select style={inputStyle} value={form.estado} disabled={form.pagoEfectivoCompleto}

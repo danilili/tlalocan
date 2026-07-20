@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react';
+import { format } from 'date-fns';
 import { T } from '../lib/design-tokens';
 import Card from '../components/Card';
 import StatusBadge from '../components/badges/StatusBadge';
@@ -12,7 +13,8 @@ import NuevaReservaForm from '../forms/NuevaReservaForm';
 import BloquearFechasForm from '../forms/BloquearFechasForm';
 import ValidarPagoForm from '../forms/ValidarPagoForm';
 import EditarReservaForm from '../forms/EditarReservaForm';
-import { formatMoney, formatDateShort } from '../lib/format';
+import { formatMoney, formatDateShort, formatDate } from '../lib/format';
+import { creadorLabel } from '../lib/creador';
 
 const ESTADOS_PROXIMAS = ['cotizada', 'pendiente_pago', 'confirmada', 'en_curso'];
 
@@ -23,9 +25,12 @@ export default function ReservasTab() {
   const [editing, setEditing] = useState(null); // reserva | null
   const [extending, setExtending] = useState(null); // reserva en curso a extender | null
   const [liberando, setLiberando] = useState(null); // id del bloqueo en proceso
-  const { isAdmin } = useRol();
+  const { isAdmin, isVentas } = useRol();
+  const puedeEditar = isAdmin || isVentas;
 
-  const today = useMemo(() => new Date().toISOString().slice(0, 10), []);
+  // Fecha local (toISOString es UTC: después de las 6pm ya "era mañana" y
+  // ocultaba las reservas de hoy).
+  const today = useMemo(() => format(new Date(), 'yyyy-MM-dd'), []);
   const { data: reservas, loading, error, refetch } = useReservas({
     desde: today,
     estado: ESTADOS_PROXIMAS,
@@ -200,7 +205,7 @@ export default function ReservasTab() {
                       🔓
                     </button>
                   ) : (
-                    isAdmin && (
+                    puedeEditar && (
                       <button
                         type="button"
                         onClick={(e) => {
@@ -215,6 +220,19 @@ export default function ReservasTab() {
                       </button>
                     )
                   )}
+                  <div
+                    style={{
+                      flexBasis: '100%',
+                      fontSize: 10.5,
+                      color: T.muted,
+                      borderTop: `1px solid ${T.border}`,
+                      paddingTop: 6,
+                      marginTop: 2,
+                    }}
+                  >
+                    Creada por {creadorLabel(r)}
+                    {r.created_at ? ` · ${formatDate(r.created_at)}` : ''}
+                  </div>
                 </Card>
               </FadeIn>
             );
