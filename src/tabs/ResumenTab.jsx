@@ -11,6 +11,7 @@ import MetricCard from '../components/MetricCard';
 import StatusBadge from '../components/badges/StatusBadge';
 import FadeIn from '../components/FadeIn';
 import SectionTitle from '../components/SectionTitle';
+import TlaliSwitch from '../components/TlaliSwitch';
 import { useChalets } from '../hooks/useChalets';
 import { useConfig } from '../hooks/useConfig';
 import { useRol } from '../hooks/useRol';
@@ -325,6 +326,7 @@ export default function ResumenTab() {
   return (
     <>
       <FadeIn>
+        <TlaliSwitch />
         <SectionTitle>{rangoLabel}</SectionTitle>
         <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center', marginBottom: 14 }}>
           {PRESETS.map((p) => (
