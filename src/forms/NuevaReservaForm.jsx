@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '../lib/supabase';
 import { T } from '../lib/design-tokens';
-import { formatMoney, formatDateShort, normalizePhone } from '../lib/format';
+import { formatMoney, formatDateShort, normalizePhone, normalizePhoneMx } from '../lib/format';
 import Modal from '../components/Modal';
 import RangeCalendar from '../components/RangeCalendar';
 import PagosDraftEditor, { FORMAS_PAGO } from '../components/PagosDraftEditor';
@@ -129,8 +129,8 @@ export default function NuevaReservaForm({ open, onClose, onCreated, reservaAExt
 
   // Buscar huesped por telefono.
   useEffect(() => {
-    const tel = normalizePhone(form.phone);
-    if (tel.length < 10) { setHuespedFound(null); return; }
+    const tel = normalizePhoneMx(form.phone);
+    if (normalizePhone(form.phone).length < 10) { setHuespedFound(null); return; }
     let cancelled = false;
     (async () => {
       const { data: rows } = await supabase
@@ -268,7 +268,7 @@ export default function NuevaReservaForm({ open, onClose, onCreated, reservaAExt
     if (!valid || submitting) return;
     setSubmitting(true); setSubmitError(null);
     try {
-      const tel = normalizePhone(form.phone);
+      const tel = normalizePhoneMx(form.phone);
       let huespedId = huespedFound?.id;
       if (!huespedId) {
         const { data: newH, error: hErr } = await supabase.from('huespedes').insert({
@@ -392,10 +392,13 @@ export default function NuevaReservaForm({ open, onClose, onCreated, reservaAExt
 
         {/* Huesped */}
         <div style={fieldStyle}>
-          <label style={labelStyle}>Teléfono WhatsApp (con lada)</label>
-          <input style={inputStyle} type="tel" placeholder="5213335702682"
+          <label style={labelStyle}>Teléfono WhatsApp</label>
+          <input style={inputStyle} type="tel" placeholder="3335702682"
                  value={form.phone} onChange={(e) => set({ phone: e.target.value })}
                  readOnly={esExtension} required />
+          <div style={{ fontSize: 11, color: T.muted, marginTop: 4 }}>
+            10 dígitos = número de México (la lada +52 se agrega sola). Extranjeros: con lada.
+          </div>
           {huespedFound && (
             <div style={{ fontSize: 11, color: T.green, marginTop: 4 }}>
               Huésped existente: {huespedFound.total_estancias} estancia(s) previa(s).

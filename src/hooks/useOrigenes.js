@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '../lib/supabase';
 
-// Catálogo de orígenes capturables a mano (flag captura_manual): website,
-// referido, extension, cortesia. Los demás (directa, agente_whatsapp, airbnb…)
-// siguen activos en el sistema pero no se capturan desde la app.
+// Catálogo de orígenes capturables a mano (flag captura_manual): referido,
+// extension, cortesia. Los demás (website, directa, agente_whatsapp, airbnb…)
+// siguen activos en el sistema pero no se capturan desde la app (website llega
+// solo por el sync de MotoPress desde jul 2026).
 // Los solo_admin se filtran en el caller.
 export function useOrigenes() {
   const [data, setData] = useState([]);

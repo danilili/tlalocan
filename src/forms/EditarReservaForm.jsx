@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '../lib/supabase';
 import { T } from '../lib/design-tokens';
-import { formatMoney, formatDate, normalizePhone } from '../lib/format';
+import { formatMoney, formatDate, normalizePhone, normalizePhoneMx } from '../lib/format';
 import Modal from '../components/Modal';
 import PagosReserva from '../components/PagosReserva';
 import { useRol } from '../hooks/useRol';
@@ -152,22 +152,28 @@ export default function EditarReservaForm({ open, reserva, onClose, onUpdated, o
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!valid || submitting) return;
+    if (reserva.origen === 'airbnb') {
+      const ok = window.confirm(
+        'Los cambios en las reservaciones de Airbnb pueden afectar la plataforma y la integridad de la información. ¿Seguro que quieres guardar?',
+      );
+      if (!ok) return;
+    }
     setSubmitting(true);
     setSubmitError(null);
     try {
       // 1) Guardar/fusionar contacto del huésped si se capturó o cambió.
       //    Reutiliza completar_huesped_airbnb: actualiza en sitio o funde con un
       //    huésped existente (match por últimos 10 dígitos del teléfono).
-      const telDigits = normalizePhone(telefono);
+      const telDigits = normalizePhoneMx(telefono);
       const contactoCambiado =
         isPlaceholder ||
         nombre.trim() !== (reserva.huesped?.nombre ?? '') ||
         apellidos.trim() !== (reserva.huesped?.apellidos ?? '') ||
-        telDigits !== normalizePhone(reserva.huesped?.telefono ?? '') ||
+        telDigits !== normalizePhoneMx(reserva.huesped?.telefono ?? '') ||
         email.trim() !== (reserva.huesped?.email ?? '');
       const quiereContacto = !!nombre.trim() || telDigits.length > 0;
       if (quiereContacto && contactoCambiado) {
-        if (!nombre.trim() || telDigits.length < 10) {
+        if (!nombre.trim() || normalizePhone(telefono).length < 10) {
           setSubmitError('Para guardar el huésped: captura nombre y teléfono de 10 dígitos.');
           setSubmitting(false);
           return;
@@ -176,7 +182,7 @@ export default function EditarReservaForm({ open, reserva, onClose, onUpdated, o
           p_reserva_id: reserva.id,
           p_nombre: nombre.trim(),
           p_apellidos: apellidos.trim() || null,
-          p_telefono: telefono.trim(),
+          p_telefono: telDigits,
           p_email: email.trim() || null,
         });
         if (rpcErr) throw rpcErr;
@@ -252,11 +258,11 @@ export default function EditarReservaForm({ open, reserva, onClose, onUpdated, o
 
         <div style={rowStyle}>
           <div style={{ ...fieldStyle, flex: 1, minWidth: 180 }}>
-            <label style={labelStyle}>Teléfono WhatsApp (con lada)</label>
+            <label style={labelStyle}>Teléfono WhatsApp (sin lada = México)</label>
             <input
               style={inputStyle}
               type="tel"
-              placeholder="5213335702682"
+              placeholder="3335702682"
               value={telefono}
               onChange={(e) => setTelefono(e.target.value)}
             />

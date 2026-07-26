@@ -210,6 +210,12 @@ export default function ReservasTab() {
                         type="button"
                         onClick={(e) => {
                           e.stopPropagation();
+                          if (
+                            r.origen === 'airbnb' &&
+                            !window.confirm(
+                              'No es recomendable editar reservaciones procedentes de Airbnb. ¿Estás seguro?',
+                            )
+                          ) return;
                           setEditing(r);
                         }}
                         title="Editar reserva"

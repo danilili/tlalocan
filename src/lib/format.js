@@ -60,6 +60,16 @@ export function normalizePhone(phone) {
   return (phone ?? '').replace(/\D/g, '');
 }
 
+// Normaliza asumiendo México cuando viene sin lada: 10 dígitos → 521XXXXXXXXXX
+// (el formato con que el schema guarda los WhatsApp). "52" sin el 1 de móvil
+// también se completa. Números con otra lada se dejan tal cual.
+export function normalizePhoneMx(phone) {
+  const digits = normalizePhone(phone);
+  if (digits.length === 10) return `521${digits}`;
+  if (digits.length === 12 && digits.startsWith('52')) return `521${digits.slice(2)}`;
+  return digits;
+}
+
 // Para mostrar: agrega un + adelante si parece codigo pais.
 export function formatPhone(phone) {
   const digits = normalizePhone(phone);
