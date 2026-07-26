@@ -116,6 +116,10 @@ export default function ReservasTab() {
             const esBloqueo = r.origen === 'bloqueo';
             const needsValidation = !esBloqueo && requiresValidation(r);
             const clickable = needsValidation && isAdmin;
+            // Diferencia entre el total y los pagos registrados (ledger sync).
+            const adeudo = esBloqueo
+              ? 0
+              : Math.max(0, (Number(r.monto_total) || 0) - (Number(r.monto_pagado) || 0));
             return (
               <FadeIn key={r.id} delay={i * 40}>
                 <Card
@@ -178,16 +182,15 @@ export default function ReservasTab() {
                     <StatusBadge status={r.estado} />
                   </div>
                   {!esBloqueo && (
-                    <div
-                      style={{
-                        fontSize: 14,
-                        fontWeight: 600,
-                        color: T.goldLight,
-                        minWidth: 90,
-                        textAlign: 'right',
-                      }}
-                    >
-                      {formatMoney(r.monto_total)}
+                    <div style={{ minWidth: 90, textAlign: 'right' }}>
+                      <div style={{ fontSize: 14, fontWeight: 600, color: T.goldLight }}>
+                        {formatMoney(r.monto_total)}
+                      </div>
+                      {adeudo > 0.009 && (
+                        <div style={{ fontSize: 11, fontWeight: 600, color: T.red, marginTop: 2 }}>
+                          Adeudo {formatMoney(adeudo)}
+                        </div>
+                      )}
                     </div>
                   )}
                   {esBloqueo ? (
