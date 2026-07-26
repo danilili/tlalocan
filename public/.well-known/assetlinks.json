@@ -1,0 +1,12 @@
+[
+  {
+    "relation": ["delegate_permission/common.handle_all_urls"],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "com.tlalocan.panel",
+      "sha256_cert_fingerprints": [
+        "65:1D:01:21:45:D3:69:BC:2F:E5:8E:19:69:EB:57:49:09:F8:75:3D:65:F6:E5:0B:1A:82:4B:AD:FD:2A:17:2A"
+      ]
+    }
+  }
+]

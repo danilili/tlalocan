@@ -37,3 +37,4 @@ supabase/.temp
 
 # Claude Code (config local del usuario)
 .claude/settings.local.json
+twa/
